@@ -1,0 +1,104 @@
+import { BarChart3, BookOpen, Calendar, Home, Settings } from 'lucide-react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
+
+export function CustomTabBar({ state, descriptors, navigation }: any) {
+    // 1. 아이콘 매핑
+    const icons: any = {
+        home: Home,
+        diary: BookOpen,
+        calendar: Calendar,
+        report: BarChart3,
+        settings: Settings,
+    };
+
+    // 2. 라벨 매핑
+    const labels: any = {
+        home: "홈",
+        diary: "일기",
+        calendar: "달력",
+        report: "리포트",
+        settings: "설정",
+    };
+
+    // 3. 탭 순서 지정 (가운데 홈)
+    const tabsOrder = ["diary", "calendar", "home", "report", "settings"];
+
+    return (
+        <View className="flex-row h-20 bg-white border-t border-gray-100 items-end justify-around pb-2 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+            {tabsOrder.map((routeName) => {
+                const route = state.routes.find((r: any) => r.name === routeName);
+                if (!route) return null;
+
+                const index = state.routes.indexOf(route);
+                const isFocused = state.index === index;
+                const Icon = icons[routeName] || Home;
+                const label = labels[routeName];
+                const isHome = routeName === "home"; // 홈 버튼인지 확인
+
+                const onPress = () => {
+                    const event = navigation.emit({
+                        type: 'tabPress',
+                        target: route.key,
+                        canPreventDefault: true,
+                    });
+
+                    if (!isFocused && !event.defaultPrevented) {
+                        navigation.navigate(route.name);
+                    }
+                };
+
+                // ✅ [스타일 1] 가운데 홈 버튼 (크고 튀어나옴)
+                if (isHome) {
+                    return (
+                        <TouchableOpacity
+                            key={route.key}
+                            onPress={onPress}
+                            activeOpacity={0.9}
+                            className="items-center justify-center -mt-8" // 위로 올림
+                            style={{ width: 70 }}
+                        >
+                            <View className={`w-14 h-14 rounded-full items-center justify-center shadow-lg shadow-purple-200 ${isFocused ? "bg-[#7C3AED]" : "bg-white border border-gray-100"
+                                }`}>
+                                <Icon
+                                    size={28}
+                                    color={isFocused ? "white" : "#7C3AED"}
+                                    // ⚡️ 여기서 두께 조절 (얇게: 2)
+                                    strokeWidth={2}
+                                />
+                            </View>
+                            <Text className="text-[10px] mt-1 font-medium text-[#7C3AED]">{label}</Text>
+                        </TouchableOpacity>
+                    );
+                }
+
+                // ✅ [스타일 2] 일반 버튼들 (얇고 깔끔하게)
+                return (
+                    <TouchableOpacity
+                        key={route.key}
+                        onPress={onPress}
+                        activeOpacity={0.7}
+                        className="items-center justify-center flex-1 h-12 mb-1"
+                    >
+                        {/* 상단 보라색 선 (활성화 시) */}
+                        {isFocused && (
+                            <View className="absolute -top-3 w-8 h-[3px] bg-[#7C3AED] rounded-b-full" />
+                        )}
+
+                        <Icon
+                            size={24}
+                            color={isFocused ? "#7C3AED" : "#94A3B8"}
+                            // ⚡️ 여기서 두께 조절 (평소: 1.5, 선택됨: 2) -> 훨씬 세련됨!
+                            strokeWidth={isFocused ? 2 : 1.5}
+                        />
+                        <Text
+                            className={`text-[10px] mt-1 font-medium ${isFocused ? "text-[#7C3AED]" : "text-gray-400"
+                                }`}
+                        >
+                            {label}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
+}
