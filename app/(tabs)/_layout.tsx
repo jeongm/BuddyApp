@@ -1,6 +1,13 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Text, TextInput } from 'react-native';
 import { CustomTabBar } from '../../components/CustomTabBar'; // 경로가 맞는지 꼭 확인!
+
+if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
+(Text as any).defaultProps.allowFontScaling = false;
+
+if ((TextInput as any).defaultProps == null) (TextInput as any).defaultProps = {};
+(TextInput as any).defaultProps.allowFontScaling = false;
 
 // ⚠️ 중요: 반드시 'export default'가 있어야 합니다!
 export default function TabLayout() {
