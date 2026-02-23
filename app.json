@@ -45,7 +45,8 @@
           "photosPermission": "일기에 사진을 첨부하기 위해 사진첩 접근 권한이 필요합니다."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

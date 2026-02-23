@@ -1,278 +1,274 @@
-import { useFocusEffect, useRouter } from "expo-router";
-import { ChevronRight, Info, Shield, User, X } from 'lucide-react-native';
-import React, { useCallback, useState } from "react";
-import {
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
-} from "react-native";
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ✅ 우리가 만든 커스텀 UI 컴포넌트 가져오기
-import { Button } from '../../components/ui/Button';
-import { Card, CardContent, CardTitle } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { storage, UserSettings } from '../../utils/storage';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+configureReanimatedLogger({
+    level: ReanimatedLogLevel.warn,
+    strict: false,
+});
+
+import { memberApi } from "../../api/memberApi";
+import { IS_TEST_MODE } from "../../config";
+import { useAuthStore } from "../../store/useAuthStore";
+import { useThemeStore, type AccentColor } from "../../store/useThemeStore";
 
 export default function SettingsScreen() {
-    const router = useRouter();
+    const { user, logout, updateUserInfo } = useAuthStore();
 
-    // --- State ---
-    const [settings, setSettings] = useState<UserSettings>({
-        nickname: "사용자",
-        characterName: "버디",
-        themeColor: "#7C3AED"
-    });
+    // ✨ 상태 관리는 100% 안전한 기존 방식(Zustand)만 사용!
+    const { theme, setTheme, accent, setAccent } = useThemeStore();
 
-    const [modalType, setModalType] = useState<"nickname" | "character" | "color" | "logout" | "delete" | null>(null);
-    const [tempValue, setTempValue] = useState("");
+    const [editingField, setEditingField] = useState<"nickname" | "buddyName" | null>(null);
+    const [inputValue, setInputValue] = useState("");
+    const [selectedCharSeq, setSelectedCharSeq] = useState<number>(user?.characterSeq || 1);
 
-    const themeColors = [
-        { name: "보라", color: "#7C3AED" },
-        { name: "초록", color: "#22C55E" },
-        { name: "파랑", color: "#3B82F6" },
-        { name: "분홍", color: "#EC4899" },
-        { name: "주황", color: "#F97316" },
-        { name: "빨강", color: "#EF4444" },
+    useEffect(() => {
+        if (user?.characterSeq) setSelectedCharSeq(user.characterSeq);
+    }, [user?.characterSeq]);
+
+    const characters = [
+        { seq: 1, name: "햄스터", img: require('../../assets/images/characters/Hamster.png') },
+        { seq: 2, name: "여우", img: require('../../assets/images/characters/Fox.png') },
+        { seq: 3, name: "판다", img: require('../../assets/images/characters/Panda.png') },
     ];
 
-    // --- 초기 데이터 로드 ---
-    useFocusEffect(
-        useCallback(() => {
-            const loadSettings = async () => {
-                const data = await storage.getSettings();
-                if (data) setSettings(data);
-            };
-            loadSettings();
-        }, [])
-    );
+    const myCharacter = characters.find(c => c.seq === user?.characterSeq) || characters[0];
+    const isCurrentChar = user?.characterSeq === selectedCharSeq;
 
-    // --- 핸들러 ---
-    const openModal = (type: "nickname" | "character" | "color" | "logout" | "delete") => {
-        if (type === "nickname") setTempValue(settings.nickname);
-        if (type === "character") setTempValue(settings.characterName);
-        if (type === "color") setTempValue(settings.themeColor);
-        setModalType(type);
-    };
-
-    const closeModal = () => {
-        setModalType(null);
-        setTempValue("");
-    };
-
-    const handleSave = async () => {
-        let newSettings = { ...settings };
-
-        if (modalType === "nickname") {
-            newSettings.nickname = tempValue;
-        } else if (modalType === "character") {
-            newSettings.characterName = tempValue;
-        } else if (modalType === "color") {
-            newSettings.themeColor = tempValue;
-        } else if (modalType === "logout") {
-            router.replace("/");
-            return;
-        } else if (modalType === "delete") {
-            await storage.clearAll();
-            router.replace("/");
-            return;
+    const handleCharacterSave = async () => {
+        if (isCurrentChar) return;
+        try {
+            if (!IS_TEST_MODE) await memberApi.updateCharacter({ characterSeq: selectedCharSeq });
+            updateUserInfo({ characterSeq: selectedCharSeq });
+            Alert.alert("성공", "캐릭터가 변경되었습니다! 🎉");
+        } catch (error) {
+            Alert.alert("알림", "캐릭터 변경에 실패했습니다.");
         }
-
-        setSettings(newSettings);
-        await storage.saveSettings(newSettings);
-        closeModal();
     };
 
-    // --- 내부 컴포넌트: 설정 메뉴 아이템 ---
-    // Button 컴포넌트의 variant="ghost"를 활용해도 되지만, 
-    // 양쪽 정렬(justify-between)을 위해 커스텀 TouchableOpacity를 사용하되 스타일은 통일합니다.
-    const MenuItem = ({ label, value, onPress, isDestructive = false, showColor = false, colorValue = "" }: any) => (
-        <TouchableOpacity
-            onPress={onPress}
-            activeOpacity={0.7}
-            className="flex-row items-center justify-between p-3 mb-1 rounded-xl active:bg-gray-50"
-        >
-            <Text className={`text-[15px] font-medium ${isDestructive ? 'text-red-500' : 'text-gray-700'}`}>
-                {label}
-            </Text>
-            <View className="flex-row items-center gap-2">
-                {showColor && (
-                    <View
-                        className="w-5 h-5 rounded-full border border-gray-200"
-                        style={{ backgroundColor: colorValue }}
-                    />
-                )}
-                {value && <Text className="text-sm text-gray-400">{value}</Text>}
-                <ChevronRight size={18} color="#D1D5DB" />
-            </View>
-        </TouchableOpacity>
-    );
+    const handleEditStart = (field: "nickname" | "buddyName", currentVal: string) => {
+        setEditingField(field);
+        setInputValue(currentVal);
+    };
+
+    const handleEditSave = async () => {
+        if (!inputValue.trim()) return setEditingField(null);
+        try {
+            if (editingField === "nickname") {
+                if (!IS_TEST_MODE) await memberApi.updateNickname(inputValue);
+                updateUserInfo({ nickname: inputValue });
+            } else if (editingField === "buddyName") {
+                if (!IS_TEST_MODE) await memberApi.updateCharacterName({ characterName: inputValue });
+                updateUserInfo({ characterNickname: inputValue });
+            }
+            setEditingField(null);
+        } catch (error) {
+            Alert.alert("알림", "정보 수정에 실패했습니다.");
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert("회원 탈퇴", "정말 탈퇴하시겠습니까?\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.", [
+            { text: "취소", style: "cancel" },
+            {
+                text: "탈퇴하기", style: "destructive",
+                onPress: async () => {
+                    try {
+                        if (!IS_TEST_MODE) await memberApi.deleteAccount();
+                        logout();
+                        router.replace("/auth/login");
+                    } catch (error) {
+                        Alert.alert("오류", "회원 탈퇴 처리에 실패했습니다.");
+                    }
+                }
+            }
+        ]);
+    };
+
+    const handleLogout = () => {
+        Alert.alert("로그아웃", "로그아웃 하시겠습니까?", [
+            { text: "취소", style: "cancel" },
+            { text: "확인", onPress: () => { logout(); router.replace("/auth/login"); } }
+        ]);
+    };
+
+    const accentColors: { id: AccentColor; hex: string; label: string }[] = [
+        { id: 'default', hex: '#64748B', label: '모노' },
+        { id: 'violet', hex: '#8B5CF6', label: '바이올렛' },
+        { id: 'rose', hex: '#F43F5E', label: '로즈' },
+        { id: 'blue', hex: '#3B82F6', label: '블루' },
+        { id: 'green', hex: '#22C55E', label: '그린' },
+    ];
 
     return (
-        <SafeAreaView className="flex-1 bg-[#F9FAFB]" edges={['top']}>
-            {/* Header */}
-            <View className="px-5 py-4 bg-white border-b border-gray-100">
-                <Text className="text-xl font-bold text-gray-900">설정</Text>
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
+            <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60">
+                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    Settings
+                </Text>
             </View>
 
-            <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
 
-                {/* Profile Section */}
-                <View className="items-center mb-8">
-                    <View className="w-24 h-24 rounded-full bg-purple-50 items-center justify-center mb-4 border border-purple-100">
-                        <User size={40} color="#7C3AED" />
+                {/* 1. 히어로 프로필 */}
+                <View className="items-center pt-10 pb-10">
+                    <View className="w-28 h-28 rounded-full bg-slate-50 dark:bg-slate-900 items-center justify-center border border-slate-100 dark:border-slate-800/60 shadow-sm mb-5">
+                        <Image source={myCharacter.img} style={{ width: 84, height: 84 }} contentFit="contain" />
                     </View>
-                    <Text className="text-xl font-bold text-gray-900">{settings.nickname}</Text>
-                    <Text className="text-sm text-gray-500 mt-1">{settings.characterName}와 함께하는 중</Text>
+                    <Text className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">{user?.nickname}</Text>
+                    <Text className="text-sm font-medium text-slate-400 dark:text-slate-500 mb-4">{user?.email}</Text>
+
+                    <View className="bg-primary-50 dark:bg-primary-900/40 px-4 py-1.5 rounded-full border border-primary-100/50 dark:border-primary-800/50">
+                        <Text className="text-xs font-extrabold tracking-wide text-primary-600 dark:text-primary-400 uppercase">
+                            단짝 버디 : {user?.characterNickname || myCharacter.name}
+                        </Text>
+                    </View>
                 </View>
 
-                {/* 1. 내 정보 관리 (Card 컴포넌트 사용!) */}
-                <View className="mb-6">
-                    <Card className="bg-white border-gray-100 shadow-sm">
-                        <View className="px-4 py-3 border-b border-gray-50 flex-row items-center gap-2">
-                            <User size={18} color="#6B7280" />
-                            <CardTitle className="text-sm text-gray-500">내 정보 관리</CardTitle>
+                {/* 2. 일반 설정 (애플 Inset Grouped 박스) */}
+                <View className="px-5 mb-8">
+                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Profile Info</Text>
+
+                    <View className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden">
+                        <View className="px-5 py-4 flex-row items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50">
+                            <Text className="text-[15px] font-bold text-slate-700 dark:text-slate-300 w-24">내 닉네임</Text>
+                            {editingField === "nickname" ? (
+                                <View className="flex-row items-center flex-1 justify-end gap-3">
+                                    <TextInput autoFocus className="flex-1 text-right text-[15px] font-bold text-slate-900 dark:text-white border-b border-primary-500/50 py-1" value={inputValue} onChangeText={setInputValue} onSubmitEditing={handleEditSave} />
+                                    <TouchableOpacity onPress={handleEditSave} className="bg-primary-600 px-3 py-1.5 rounded-full"><Text className="text-white text-[11px] font-extrabold tracking-wide">저장</Text></TouchableOpacity>
+                                </View>
+                            ) : (
+                                <TouchableOpacity onPress={() => handleEditStart("nickname", user?.nickname || "")} className="flex-row items-center flex-1 justify-end gap-2" activeOpacity={0.6}>
+                                    <Text className="text-[15px] font-medium text-slate-500 dark:text-slate-400">{user?.nickname}</Text>
+                                    <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+                                </TouchableOpacity>
+                            )}
                         </View>
-                        <CardContent className="p-2">
-                            <MenuItem label="닉네임 변경" value={settings.nickname} onPress={() => openModal("nickname")} />
-                            <MenuItem label="캐릭터 별명 변경" value={settings.characterName} onPress={() => openModal("character")} />
-                            <MenuItem label="테마 색상 변경" showColor colorValue={settings.themeColor} onPress={() => openModal("color")} />
-                        </CardContent>
-                    </Card>
-                </View>
 
-                {/* 2. 계정 관리 (Card 컴포넌트 사용!) */}
-                <View className="mb-6">
-                    <Card className="bg-white border-gray-100 shadow-sm">
-                        <View className="px-4 py-3 border-b border-gray-50 flex-row items-center gap-2">
-                            <Shield size={18} color="#6B7280" />
-                            <CardTitle className="text-sm text-gray-500">계정 관리</CardTitle>
+                        <View className="px-5 py-4 flex-row items-center justify-between">
+                            <Text className="text-[15px] font-bold text-slate-700 dark:text-slate-300 w-24">버디 이름</Text>
+                            {editingField === "buddyName" ? (
+                                <View className="flex-row items-center flex-1 justify-end gap-3">
+                                    <TextInput autoFocus className="flex-1 text-right text-[15px] font-bold text-slate-900 dark:text-white border-b border-primary-500/50 py-1" value={inputValue} onChangeText={setInputValue} onSubmitEditing={handleEditSave} />
+                                    <TouchableOpacity onPress={handleEditSave} className="bg-primary-600 px-3 py-1.5 rounded-full"><Text className="text-white text-[11px] font-extrabold tracking-wide">저장</Text></TouchableOpacity>
+                                </View>
+                            ) : (
+                                <TouchableOpacity onPress={() => handleEditStart("buddyName", user?.characterNickname || "")} className="flex-row items-center flex-1 justify-end gap-2" activeOpacity={0.6}>
+                                    <Text className="text-[15px] font-medium text-slate-500 dark:text-slate-400">{user?.characterNickname}</Text>
+                                    <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+                                </TouchableOpacity>
+                            )}
                         </View>
-                        <CardContent className="p-2">
-                            <MenuItem label="로그아웃" onPress={() => openModal("logout")} />
-                            <MenuItem label="회원 탈퇴" isDestructive onPress={() => openModal("delete")} />
-                        </CardContent>
-                    </Card>
+                    </View>
                 </View>
 
-                {/* 3. 서비스 정보 (Card 컴포넌트 사용!) */}
-                <View className="mb-6">
-                    <Card className="bg-white border-gray-100 shadow-sm">
-                        <View className="px-4 py-3 border-b border-gray-50 flex-row items-center gap-2">
-                            <Info size={18} color="#6B7280" />
-                            <CardTitle className="text-sm text-gray-500">서비스 정보</CardTitle>
+                {/* 3. 디스플레이 & 테마 */}
+                <View className="px-5 mb-10">
+                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Display & Color</Text>
+
+                    <View className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden px-5 py-6">
+                        <View className="flex-row bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-8">
+                            {[{ id: 'system', label: '기기 설정' }, { id: 'light', label: '라이트' }, { id: 'dark', label: '다크' }].map((t) => {
+                                const isSelected = theme === t.id;
+                                if (isSelected) {
+                                    return (
+                                        <View key={t.id} className="flex-1 py-3 rounded-xl items-center justify-center bg-white dark:bg-slate-700 shadow-sm">
+                                            <Text className="text-[13px] tracking-tight font-extrabold text-slate-900 dark:text-white">{t.label}</Text>
+                                        </View>
+                                    );
+                                }
+                                return (
+                                    <TouchableOpacity
+                                        key={t.id}
+                                        // ✨ 에러를 유발하던 코드를 빼고 안전하게 기존 상태만 업데이트합니다!
+                                        onPress={() => setTheme(t.id as any)}
+                                        activeOpacity={0.8}
+                                        className="flex-1 py-3 rounded-xl items-center justify-center bg-transparent"
+                                    >
+                                        <Text className="text-[13px] tracking-tight font-bold text-slate-500 dark:text-slate-400">{t.label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
-                        <CardContent className="p-2">
-                            <MenuItem label="버전 정보" value="1.0.0" onPress={() => { }} />
-                            <MenuItem label="이용약관" onPress={() => { }} />
-                            <MenuItem label="개인정보 처리방침" onPress={() => { }} />
-                        </CardContent>
-                    </Card>
+
+                        <View className="flex-row justify-between items-center px-2">
+                            {accentColors.map((color) => {
+                                const isSelected = accent === color.id;
+                                return (
+                                    <TouchableOpacity key={color.id} onPress={() => setAccent(color.id)} activeOpacity={0.8} className="items-center gap-2">
+                                        <View className={`w-10 h-10 rounded-full items-center justify-center transition-all duration-300 ${isSelected ? 'scale-110 shadow-md' : 'scale-100'}`} style={{ backgroundColor: color.hex, opacity: isSelected ? 1 : 0.3 }}>
+                                            {isSelected && <Ionicons name="checkmark" size={20} color="white" />}
+                                        </View>
+                                        <Text className={`text-[10px] font-extrabold tracking-wide ${isSelected ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400'}`}>{color.label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
                 </View>
 
-                <View className="h-24" />
+                {/* 4. 캐릭터 변경 */}
+                <View className="px-5 mb-10">
+                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Select Buddy</Text>
+
+                    <View className="flex-row justify-between mb-6">
+                        {characters.map((char) => {
+                            const isSelected = selectedCharSeq === char.seq;
+                            return (
+                                <TouchableOpacity
+                                    key={char.seq}
+                                    onPress={() => setSelectedCharSeq(char.seq)}
+                                    activeOpacity={0.7}
+                                    className={`w-[30%] aspect-square rounded-[2rem] items-center justify-center border-2 transition-all duration-300 ${isSelected
+                                            ? "bg-primary-50 dark:bg-primary-900/40 border-primary-500"
+                                            : "bg-slate-50 dark:bg-slate-900 border-transparent opacity-60"
+                                        }`}
+                                >
+                                    <Image source={char.img} style={{ width: 56, height: 56, marginBottom: 8 }} contentFit="contain" />
+                                    <Text className={`text-[11px] font-extrabold ${isSelected ? "text-primary-600 dark:text-primary-400" : "text-slate-500 dark:text-slate-400"}`}>{char.name}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+
+                    {isCurrentChar ? (
+                        <View className="w-full py-4 rounded-2xl items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60">
+                            <Text className="font-extrabold text-[13px] text-slate-400 dark:text-slate-500">현재 함께하고 있는 버디입니다</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity onPress={handleCharacterSave} className="w-full py-4 rounded-2xl items-center justify-center bg-primary-600 active:opacity-80 shadow-sm shadow-primary-300 dark:shadow-none">
+                            <Text className="font-extrabold text-[13px] tracking-wide text-white">이 버디로 변경하기</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* 5. 계정 관리 */}
+                <View className="px-5 mb-6">
+                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Account</Text>
+
+                    <View className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden">
+                        <TouchableOpacity onPress={handleLogout} activeOpacity={0.6} className="px-5 py-4 flex-row items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50">
+                            <Text className="text-[15px] font-bold text-slate-700 dark:text-slate-300">로그아웃</Text>
+                            <Ionicons name="log-out-outline" size={20} color="#94A3B8" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.6} className="px-5 py-4 flex-row items-center justify-between">
+                            <Text className="text-[15px] font-bold text-red-500 dark:text-red-400">회원 탈퇴</Text>
+                            <Ionicons name="warning-outline" size={20} color="#EF4444" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View className="items-center mt-6 mb-10 opacity-30">
+                    <Text className="text-[10px] text-slate-500 font-extrabold tracking-widest uppercase mb-1">My Buddy</Text>
+                    <Text className="text-[9px] text-slate-500 font-bold tracking-wider">Version 1.0.0</Text>
+                </View>
+
             </ScrollView>
-
-            {/* === Modal (Card, Input, Button 컴포넌트 사용!) === */}
-            <Modal transparent visible={!!modalType} animationType="fade" onRequestClose={closeModal}>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
-                    <TouchableWithoutFeedback onPress={closeModal}>
-                        <View className="flex-1 bg-black/50 items-center justify-center px-6">
-                            <TouchableWithoutFeedback>
-                                <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} className="w-full max-w-sm">
-
-                                    {/* 모달 박스를 Card로 감싸기 */}
-                                    <Card className="bg-white p-6 rounded-3xl shadow-xl">
-
-                                        {/* Header */}
-                                        <View className="flex-row justify-between items-center mb-6">
-                                            <CardTitle className="text-lg font-bold text-gray-900">
-                                                {modalType === "nickname" && "닉네임 변경"}
-                                                {modalType === "character" && "캐릭터 별명 변경"}
-                                                {modalType === "color" && "테마 색상 변경"}
-                                                {modalType === "logout" && "로그아웃"}
-                                                {modalType === "delete" && "회원 탈퇴"}
-                                            </CardTitle>
-                                            <TouchableOpacity onPress={closeModal}>
-                                                <X size={24} color="#9CA3AF" />
-                                            </TouchableOpacity>
-                                        </View>
-
-                                        {/* Content */}
-                                        <View className="mb-6">
-                                            {(modalType === "nickname" || modalType === "character") && (
-                                                // ✅ Input 컴포넌트 사용!
-                                                <Input
-                                                    value={tempValue}
-                                                    onChangeText={setTempValue}
-                                                    placeholder="입력해주세요"
-                                                    autoFocus
-                                                    className="h-12 text-base"
-                                                />
-                                            )}
-
-                                            {modalType === "color" && (
-                                                <View className="flex-row flex-wrap gap-4 justify-center">
-                                                    {themeColors.map((theme) => (
-                                                        <TouchableOpacity
-                                                            key={theme.color}
-                                                            onPress={() => setTempValue(theme.color)}
-                                                            className={`items-center justify-center p-2 rounded-xl border-2 ${tempValue === theme.color ? "border-[#7C3AED] bg-purple-50" : "border-transparent"
-                                                                }`}
-                                                        >
-                                                            <View className="w-10 h-10 rounded-full mb-1" style={{ backgroundColor: theme.color }} />
-                                                            <Text className="text-xs text-gray-500">{theme.name}</Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </View>
-                                            )}
-
-                                            {modalType === "logout" && (
-                                                <Text className="text-gray-600 text-center leading-6">
-                                                    정말 로그아웃 하시겠어요?{"\n"}다시 로그인하여 계속 사용할 수 있습니다.
-                                                </Text>
-                                            )}
-                                            {modalType === "delete" && (
-                                                <Text className="text-gray-600 text-center leading-6">
-                                                    정말 탈퇴하시겠어요?{"\n"}
-                                                    <Text className="text-red-500 font-bold">모든 데이터가 영구 삭제</Text>되며{"\n"}복구할 수 없습니다.
-                                                </Text>
-                                            )}
-                                        </View>
-
-                                        {/* Footer: ✅ Button 컴포넌트 사용! */}
-                                        <View className="flex-row gap-3">
-                                            <Button
-                                                variant="outline"
-                                                className="flex-1 h-12 rounded-xl"
-                                                onPress={closeModal}
-                                            >
-                                                <Text className="text-gray-600 font-bold">취소</Text>
-                                            </Button>
-
-                                            <Button
-                                                className={`flex-1 h-12 rounded-xl ${modalType === 'delete' ? 'bg-red-500' : 'bg-[#7C3AED]'}`}
-                                                onPress={handleSave}
-                                            >
-                                                <Text className="text-white font-bold">
-                                                    {modalType === "delete" ? "탈퇴하기" : "저장"}
-                                                </Text>
-                                            </Button>
-                                        </View>
-
-                                    </Card>
-                                </Animated.View>
-                            </TouchableWithoutFeedback>
-                        </View>
-                    </TouchableWithoutFeedback>
-                </KeyboardAvoidingView>
-            </Modal>
         </SafeAreaView>
     );
 }

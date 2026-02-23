@@ -1,42 +1,89 @@
 import { BarChart3, BookOpen, Calendar, Home, Settings } from 'lucide-react-native';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
-// 👇 아까 만든 responsive 파일 import (경로가 ../utils/responsive 인지 확인하세요)
-import { scale } from '../utils/responsive';
+import { useColorScheme } from 'nativewind'; // ✨ NativeWind의 다크모드 훅 사용
+import React, { useEffect, useRef } from 'react';
+import { Animated, Dimensions, Platform, TouchableOpacity, View } from 'react-native';
+import { useThemeStore } from '../store/useThemeStore'; // ✨ 테마 저장소 불러오기
 
 export function CustomTabBar({ state, descriptors, navigation }: any) {
+    const { colorScheme } = useColorScheme();
+    const isDark = colorScheme === 'dark';
+    const { accent } = useThemeStore(); // ✨ 유저가 고른 테마 색상 가져오기
+
+    // ✨ 유저가 선택한 테마(accent)에 맞춰 실제 Hex 컬러 코드를 반환하는 함수
+    const getActiveColor = () => {
+        switch (accent) {
+            case 'violet': return '#7C3AED'; // violet-600
+            case 'rose': return '#E11D48';   // rose-600
+            case 'blue': return '#2563EB';   // blue-600
+            case 'green': return '#16A34A';  // green-600
+            default: return isDark ? '#FFFFFF' : '#0F172A'; // 모노(default) - 라이트:까망 / 다크:하양
+        }
+    };
+
+    const activeColor = getActiveColor();
+    const inactiveColor = isDark ? '#475569' : '#94A3B8'; // 비활성 회색 (slate-600 / slate-400)
+
     const icons: any = {
-        index: Home,       // app/(tabs)/index.tsx 가 홈이라면
-        home: Home,        // app/(tabs)/home.tsx 가 홈이라면
         diary: BookOpen,
         calendar: Calendar,
+        home: Home,
         report: BarChart3,
         settings: Settings,
     };
 
-    const labels: any = {
-        index: "홈",
-        home: "홈",
-        diary: "다이어리",
-        calendar: "캘린더",
-        report: "리포트",
-        settings: "설정",
-    };
+    const tabsOrder = ["diary", "calendar", "home", "report", "settings"];
+
+    // 화면 전체 너비를 탭 개수(5개)로 정확히 나눈 값을 구합니다.
+    const tabWidth = Dimensions.get('window').width / tabsOrder.length;
+
+    // 애니메이션 값: 선택된 인덱스 * 탭 하나의 너비만큼 X좌표를 이동시킵니다.
+    const translateX = useRef(new Animated.Value(state.index * tabWidth)).current;
+
+    useEffect(() => {
+        // 부드럽게 미끄러지는 스프링(Spring) 애니메이션
+        Animated.spring(translateX, {
+            toValue: state.index * tabWidth,
+            useNativeDriver: true,
+            tension: 60,
+            friction: 8,
+        }).start();
+    }, [state.index]);
 
     return (
-        <View
-            className="flex-row bg-white border-t border-gray-200 items-center justify-around"
-            // 👇 [수정 1] 높이를 h-16(고정) 대신 scale()로 변경
-            // 아이폰(iOS)은 하단 홈바 때문에 패딩을 더 줘야 해서 삼항연산자 사용
-            style={{
-                height: Platform.OS === 'ios' ? scale(85) : scale(65),
-                paddingBottom: Platform.OS === 'ios' ? scale(20) : 0
-            }}
-        >
-            {state.routes.map((route: any, index: number) => {
+        // ✨ 미니멀리즘 디자인에 맞춰 배경색을 bg-slate-950으로 깊게, 테두리 라인을 얇게 조정
+        <View className={`flex-row bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 items-center transition-colors duration-300 relative ${Platform.OS === 'ios' ? 'h-20 pb-5' : 'h-16'}`}>
+
+            {/* 스르륵 움직이는 슬라이딩 바 (절대 위치) */}
+            <Animated.View
+                style={{
+                    position: 'absolute',
+                    top: -1, // 테두리 선 바로 위를 덮으면서 이동하도록 살짝 올림
+                    left: 0,
+                    width: tabWidth,
+                    height: 3,
+                    alignItems: 'center',
+                    transform: [{ translateX }],
+                    zIndex: 10,
+                }}
+            >
+                <View
+                    style={{
+                        width: 40,
+                        height: '100%',
+                        backgroundColor: activeColor, // ✨ 선택된 테마 색상 적용!
+                        borderBottomLeftRadius: 4,
+                        borderBottomRightRadius: 4,
+                    }}
+                />
+            </Animated.View>
+
+            {tabsOrder.map((routeName) => {
+                const route = state.routes.find((r: any) => r.name === routeName);
+                if (!route) return null;
+
+                const index = state.routes.indexOf(route);
                 const isFocused = state.index === index;
-                // route.name이 매핑에 없으면 기본값 Home
-                const Icon = icons[route.name] || Home;
-                const label = labels[route.name] || route.name;
+                const Icon = icons[routeName] || Home;
 
                 const onPress = () => {
                     const event = navigation.emit({
@@ -54,34 +101,14 @@ export function CustomTabBar({ state, descriptors, navigation }: any) {
                     <TouchableOpacity
                         key={route.key}
                         onPress={onPress}
-                        activeOpacity={0.7}
-                        className="items-center justify-center flex-1 h-full relative"
+                        activeOpacity={0.5}
+                        className="flex-1 items-center justify-center h-full"
                     >
-                        {/* 상단 보라색 선 */}
-                        {isFocused && (
-                            <View
-                                className="absolute top-0 bg-[#7C3AED] rounded-b-full"
-                                // 👇 [수정 2] 선의 너비와 두께도 비율에 맞게 늘림
-                                style={{ width: scale(45), height: scale(3) }}
-                            />
-                        )}
-
-                        {/* 아이콘 */}
                         <Icon
-                            // 👇 [수정 3] 아이콘 크기를 scale(24)로 변경 (친구 폰에선 자동으로 커짐)
-                            size={scale(24)}
-                            color={isFocused ? "#7C3AED" : "#71717A"}
-                            strokeWidth={isFocused ? 2 : 1.5}
+                            size={routeName === 'home' ? 28 : 26}
+                            color={isFocused ? activeColor : inactiveColor} // ✨ 선택된 테마 색상 적용!
+                            strokeWidth={isFocused ? 2.5 : 1.5}
                         />
-
-                        {/* 라벨 텍스트 */}
-                        <Text
-                            className={`mt-1 font-medium ${isFocused ? "text-[#7C3AED]" : "text-gray-500"}`}
-                            // 👇 [수정 4] 폰트 크기(text-[10px]) 제거하고 style로 scale 적용
-                            style={{ fontSize: scale(10) }}
-                        >
-                            {label}
-                        </Text>
                     </TouchableOpacity>
                 );
             })}

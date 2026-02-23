@@ -1,255 +1,293 @@
 import { Ionicons } from "@expo/vector-icons";
+import { differenceInDays, endOfWeek, format, getWeekOfMonth, startOfWeek, subMonths } from "date-fns";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Dimensions, ScrollView, Text, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// utils
-import { DiaryEntry, storage } from "../../utils/storage";
-
-const { width } = Dimensions.get("window");
+// api & store
+import { diaryApi } from "../../api/diaryApi";
+import { useAuthStore } from "../../store/useAuthStore";
+import { useThemeStore } from "../../store/useThemeStore"; // ✨ 테마 스토어 임포트
+import type { DiarySummary } from "../../types/diary";
 
 export default function ReportScreen() {
-    const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
+    const { user } = useAuthStore();
+    const { accent } = useThemeStore(); // ✨ 현재 선택된 포인트 컬러 가져오기
 
-    // 1. 데이터 로드 (탭 열 때마다 갱신)
+    const [diaries, setDiaries] = useState<DiarySummary[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // ✨ 선택된 테마(accent)에 맞는 헥스(HEX) 컬러를 반환하는 함수
+    const getAccentColor = () => {
+        switch (accent) {
+            case 'violet': return '#8B5CF6';
+            case 'rose': return '#F43F5E';
+            case 'blue': return '#3B82F6';
+            case 'green': return '#22C55E';
+            default: return '#64748B'; // slate (default)
+        }
+    };
+
+    const fetchStatsData = useCallback(async () => {
+        if (!user) return;
+
+        setLoading(true);
+        try {
+            // 정렬 기준을 swagger 기본값인 "diaryDate,desc"로 변경
+            const response = await diaryApi.getDiaries("", 0, 50, "diaryDate,desc");
+
+            // ✨ 스웨거 구조에 맞춰 바로 content 추출!
+            if (response?.result?.content) {
+                setDiaries(response.result.content);
+            }
+        } catch (error) {
+            console.error("통계 데이터 로드 실패", error);
+            setDiaries([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
+
     useFocusEffect(
         useCallback(() => {
-            const loadData = async () => {
-                const data = await storage.getDiaries();
-                setDiaries(data);
-            };
-            loadData();
-        }, [])
+            fetchStatsData();
+        }, [fetchStatsData])
     );
 
-    // === 통계 로직 ===
+    // === 통계 데이터 계산 ===
+    const getDiaryDate = (d: any) => new Date(d.diaryDate || d.date || d.createdAt || d.createAt);
     const totalDiaries = diaries.length;
 
-    // 감정 카운트
-    const emotionCounts: Record<string, number> = {};
-    diaries.forEach((diary) => {
-        if (diary.emotion) {
-            emotionCounts[diary.emotion] = (emotionCounts[diary.emotion] || 0) + 1;
+    // 태그 빈도수 계산
+    const tagCounts: Record<string, number> = {};
+    diaries.forEach((diary: any) => {
+        if (diary.tags && Array.isArray(diary.tags)) {
+            diary.tags.forEach((tagItem: any) => {
+                const cleanTag = (typeof tagItem === 'string' ? tagItem : tagItem.name).replace(/#/g, '');
+                tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
+            });
         }
     });
 
-    // 태그 빈도수 (전처리: # 제거)
-    const tagCounts: Record<string, number> = {};
-    diaries.forEach((diary) => {
-        diary.tags.forEach((rawTag) => {
-            const cleanTag = rawTag.replace(/#/g, ''); // # 제거
-            tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
-        });
-    });
-
-    // 상위 태그 5개
     const topTags = Object.entries(tagCounts)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5);
 
-    // 이번 달 기록 수
+    // 이번 달 작성량
     const now = new Date();
     const thisMonthDiaries = diaries.filter((diary) => {
-        const diaryDate = new Date(diary.date);
-        return (
-            diaryDate.getMonth() === now.getMonth() &&
-            diaryDate.getFullYear() === now.getFullYear()
-        );
+        const dDate = getDiaryDate(diary);
+        return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();
     });
 
-    // Streak(연속 기록) 계산
-    const sortedDiaries = [...diaries].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    // 연속 기록 (Streak)
+    const uniqueDates = [...new Set(diaries.map(d => format(getDiaryDate(d), "yyyy-MM-dd")))]
+        .sort()
+        .reverse();
 
     let currentStreak = 0;
     let checkDate = new Date();
-    checkDate.setHours(0, 0, 0, 0);
+    const todayStr = format(checkDate, "yyyy-MM-dd");
+    const yesterdayStr = format(subMonths(checkDate, 0).setDate(checkDate.getDate() - 1), "yyyy-MM-dd");
 
-    for (const diary of sortedDiaries) {
-        const diaryDate = new Date(diary.date);
-        diaryDate.setHours(0, 0, 0, 0);
+    if (uniqueDates.includes(todayStr) || uniqueDates.includes(yesterdayStr)) {
+        let currentDate = new Date(uniqueDates[0]);
+        for (const dateStr of uniqueDates) {
+            const d = new Date(dateStr);
+            const diff = differenceInDays(currentDate, d);
 
-        const diffDays = Math.floor(
-            (checkDate.getTime() - diaryDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (diffDays === 0) continue;
-        if (diffDays === 1) {
-            currentStreak++;
-            checkDate = new Date(diaryDate);
-        } else {
-            break;
+            if (diff === 0) {
+                currentStreak++;
+            } else if (diff === 1) {
+                currentStreak++;
+                currentDate = d;
+            } else {
+                break;
+            }
         }
     }
 
-    if (sortedDiaries.length > 0) {
-        const lastDiaryDate = new Date(sortedDiaries[0].date);
-        lastDiaryDate.setHours(0, 0, 0, 0);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (lastDiaryDate.getTime() === today.getTime() && currentStreak === 0) {
-            currentStreak = 1;
-        }
-    }
+    // 주간 활동 차트 로직 (이번 주)
+    const weekStart = startOfWeek(now, { weekStartsOn: 0 }); // 일요일 시작
+    const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
+
+    const thisWeekDiaries = diaries.filter((diary) => {
+        const dDate = getDiaryDate(diary);
+        return dDate >= weekStart && dDate <= weekEnd;
+    });
+
+    const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
+    const weeklyData = daysOfWeek.map((day, index) => {
+        const count = thisWeekDiaries.filter((d) => getDiaryDate(d).getDay() === index).length;
+        return { day, count, index };
+    });
+    const maxWeeklyCount = Math.max(...weeklyData.map(d => d.count)) || 1;
+
+    // "몇 월 몇 주차" 텍스트
+    const monthLabel = format(now, "M월");
+    const weekOfMonth = getWeekOfMonth(now);
+    const weekLabel = `${monthLabel} ${weekOfMonth}주차`;
 
     // === UI 렌더링 ===
     return (
-        <SafeAreaView className="flex-1 bg-white">
-            {/* Header */}
-            <View className="px-5 py-4 border-b border-gray-100 mb-2 items-center justify-center">
-                <Text className="text-2xl font-bold text-gray-900">리포트</Text>
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
+
+            <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60">
+                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    Insights
+                </Text>
             </View>
 
-            <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-
-                {/* 1. Stats Grid (2x2) */}
-                <View className="flex-row flex-wrap justify-between mb-2">
-                    {/* 카드 1: 전체 일기 */}
-                    <Animated.View entering={FadeInDown.delay(100)} className="w-[48%] mb-4">
-                        <View className="bg-white p-5 rounded-3xl items-center shadow-sm border border-gray-100" style={{ elevation: 2 }}>
-                            <Text className="text-3xl mb-2">📝</Text>
-                            <Text className="text-2xl font-bold text-[#7C3AED]">{totalDiaries}</Text>
-                            <Text className="text-xs text-gray-400 mt-1 font-medium">전체 일기</Text>
-                        </View>
-                    </Animated.View>
-
-                    {/* 카드 2: 연속 기록 */}
-                    <Animated.View entering={FadeInDown.delay(200)} className="w-[48%] mb-4">
-                        <View className="bg-white p-5 rounded-3xl items-center shadow-sm border border-gray-100" style={{ elevation: 2 }}>
-                            <Text className="text-3xl mb-2">🔥</Text>
-                            <Text className="text-2xl font-bold text-[#7C3AED]">{currentStreak}</Text>
-                            <Text className="text-xs text-gray-400 mt-1 font-medium">연속 기록</Text>
-                        </View>
-                    </Animated.View>
-
-                    {/* 카드 3: 이번 달 */}
-                    <Animated.View entering={FadeInDown.delay(300)} className="w-[48%] mb-4">
-                        <View className="bg-white p-5 rounded-3xl items-center shadow-sm border border-gray-100" style={{ elevation: 2 }}>
-                            <Text className="text-3xl mb-2">📅</Text>
-                            <Text className="text-2xl font-bold text-[#7C3AED]">{thisMonthDiaries.length}</Text>
-                            <Text className="text-xs text-gray-400 mt-1 font-medium">이번 달</Text>
-                        </View>
-                    </Animated.View>
-
-                    {/* 카드 4: 관심사 */}
-                    <Animated.View entering={FadeInDown.delay(400)} className="w-[48%] mb-4">
-                        <View className="bg-white p-5 rounded-3xl items-center shadow-sm border border-gray-100" style={{ elevation: 2 }}>
-                            <Text className="text-3xl mb-2">💡</Text>
-                            <Text className="text-2xl font-bold text-[#7C3AED]">{Object.keys(tagCounts).length}</Text>
-                            <Text className="text-xs text-gray-400 mt-1 font-medium">태그 종류</Text>
-                        </View>
-                    </Animated.View>
+            {loading ? (
+                <View className="flex-1 items-center justify-center pb-20">
+                    {/* ✨ 꼼수 대신 정공법! 테마에 맞는 색상 함수 호출 */}
+                    <ActivityIndicator size="large" color={getAccentColor()} />
+                    <Text className="text-slate-500 font-bold mt-4">데이터를 분석하고 있어요...</Text>
                 </View>
+            ) : diaries.length === 0 ? (
+                <View className="flex-1 items-center justify-center pb-20 opacity-60">
+                    <Ionicons name="bar-chart-outline" size={48} color="#94A3B8" className="mb-4" />
+                    <Text className="text-slate-500 dark:text-slate-400 font-bold">아직 분석할 데이터가 부족해요.</Text>
+                </View>
+            ) : (
+                <ScrollView className="flex-1 pt-6 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-                {/* 2. 감정 분포 (Progress Bar Style) */}
-                <Animated.View entering={FadeInDown.delay(500)} className="mb-6">
-                    <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm" style={{ elevation: 2 }}>
-                        <View className="flex-row items-center mb-5">
-                            <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center mr-3">
-                                <Ionicons name="happy" size={16} color="#7C3AED" />
+                    {/* 1. Stats Grid (2x2) */}
+                    <View className="flex-row flex-wrap justify-between mb-8">
+                        <Animated.View entering={FadeInDown.duration(600).delay(100).springify()} className="w-[48%] mb-4">
+                            <View className="bg-slate-50 dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 shadow-sm aspect-square justify-between">
+                                <View className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 items-center justify-center">
+                                    <Ionicons name="library" size={20} color="#3B82F6" />
+                                </View>
+                                <View>
+                                    <Text className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tighter mb-1">{totalDiaries}</Text>
+                                    <Text className="text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">전체 기록</Text>
+                                </View>
                             </View>
-                            <Text className="text-lg font-bold text-gray-800">감정 분포</Text>
-                        </View>
+                        </Animated.View>
 
-                        {Object.keys(emotionCounts).length === 0 ? (
-                            <Text className="text-gray-400 text-center py-4">아직 기록된 감정이 없어요</Text>
-                        ) : (
-                            <View className="space-y-4">
-                                {Object.entries(emotionCounts)
-                                    .sort(([, a], [, b]) => b - a)
-                                    .map(([emotion, count], idx) => {
-                                        const percentage = (count / totalDiaries) * 100;
+                        <Animated.View entering={FadeInDown.duration(600).delay(200).springify()} className="w-[48%] mb-4">
+                            <View className="bg-slate-50 dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 shadow-sm aspect-square justify-between">
+                                <View className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 items-center justify-center">
+                                    <Ionicons name="flame" size={20} color="#F97316" />
+                                </View>
+                                <View>
+                                    <Text className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tighter mb-1">
+                                        {currentStreak}<Text className="text-xl text-slate-400 font-bold tracking-normal">일</Text>
+                                    </Text>
+                                    <Text className="text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">연속 기록</Text>
+                                </View>
+                            </View>
+                        </Animated.View>
+
+                        <Animated.View entering={FadeInDown.duration(600).delay(300).springify()} className="w-[48%]">
+                            <View className="bg-slate-50 dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 shadow-sm aspect-square justify-between">
+                                <View className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 items-center justify-center">
+                                    <Ionicons name="leaf" size={20} color="#10B981" />
+                                </View>
+                                <View>
+                                    <Text className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tighter mb-1">{thisMonthDiaries.length}</Text>
+                                    <Text className="text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">이번 달 기록</Text>
+                                </View>
+                            </View>
+                        </Animated.View>
+
+                        <Animated.View entering={FadeInDown.duration(600).delay(400).springify()} className="w-[48%]">
+                            <View className="bg-slate-50 dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 shadow-sm aspect-square justify-between">
+                                <View className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/50 items-center justify-center">
+                                    <Ionicons name="pricetags" size={20} color="#8B5CF6" />
+                                </View>
+                                <View>
+                                    <Text className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tighter mb-1">{Object.keys(tagCounts).length}</Text>
+                                    <Text className="text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">관심사 키워드</Text>
+                                </View>
+                            </View>
+                        </Animated.View>
+                    </View>
+
+                    {/* 2. 주간 활동 차트 */}
+                    <Animated.View entering={FadeInUp.duration(600).delay(500).springify()} className="mb-8">
+                        <View className="bg-slate-50 dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 shadow-sm">
+
+                            <View className="flex-row items-center justify-between mb-8">
+                                <View className="flex-row items-center gap-2">
+                                    <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">이번 주 활동</Text>
+                                    <View className="bg-primary-50 dark:bg-primary-900/40 px-2 py-0.5 rounded-md border border-primary-100/50 dark:border-primary-800/50">
+                                        <Text className="text-[10px] font-extrabold text-primary-600 dark:text-primary-400 tracking-wider">{weekLabel}</Text>
+                                    </View>
+                                </View>
+                                <Ionicons name="bar-chart" size={20} color="#94A3B8" />
+                            </View>
+
+                            <View className="flex-row justify-between items-end h-40 px-1">
+                                {weeklyData.map((data) => {
+                                    const heightPercent = (data.count / maxWeeklyCount) * 100;
+                                    const barHeight = data.count > 0 ? Math.max(heightPercent, 15) : 0;
+
+                                    return (
+                                        <View key={data.day} className="items-center w-8">
+                                            <View className="h-6 justify-end mb-2">
+                                                {data.count > 0 && (
+                                                    <Text className="text-[12px] font-extrabold text-slate-700 dark:text-slate-300">{data.count}</Text>
+                                                )}
+                                            </View>
+                                            <View className="h-24 w-5 bg-slate-200/50 dark:bg-slate-800 rounded-full justify-end overflow-hidden mb-3">
+                                                <View className="w-full bg-primary-500 rounded-full transition-all duration-500" style={{ height: `${barHeight}%` }} />
+                                            </View>
+                                            <Text className={`text-[12px] font-extrabold ${data.index === 0 ? 'text-red-400' : data.index === 6 ? 'text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                                {data.day}
+                                            </Text>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    </Animated.View>
+
+                    {/* 3. 나의 키워드 */}
+                    <Animated.View entering={FadeInUp.duration(600).delay(600).springify()} className="mb-6">
+                        <View className="bg-slate-50 dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 shadow-sm">
+                            <View className="flex-row items-center justify-between mb-6">
+                                <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">나의 키워드</Text>
+                                <Ionicons name="pricetag" size={20} color="#94A3B8" />
+                            </View>
+
+                            {topTags.length === 0 ? (
+                                <View className="py-6 items-center opacity-60">
+                                    <Text className="text-slate-500 font-bold">아직 사용된 태그가 없습니다.</Text>
+                                </View>
+                            ) : (
+                                <View className="flex-row flex-wrap gap-2.5">
+                                    {topTags.map(([tag, count], idx) => {
+                                        const isFirst = idx === 0;
                                         return (
-                                            <View key={emotion} className="mb-4">
-                                                <View className="flex-row justify-between mb-2">
-                                                    <Text className="text-sm font-bold text-gray-700 capitalize">{emotion}</Text>
-                                                    <Text className="text-xs text-gray-500">{count}회 ({percentage.toFixed(0)}%)</Text>
-                                                </View>
-                                                <View className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <View
-                                                        className="h-full bg-[#7C3AED] rounded-full"
-                                                        style={{ width: `${percentage}%` }}
-                                                    />
+                                            <View
+                                                key={tag}
+                                                className={`px-4 py-2 rounded-full flex-row items-center border ${isFirst
+                                                    ? "bg-primary-600 border-primary-600 shadow-sm shadow-primary-300 dark:shadow-none"
+                                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                                    }`}
+                                            >
+                                                <Text className={`font-extrabold text-[13px] tracking-wide mr-2 ${isFirst ? "text-white" : "text-slate-700 dark:text-slate-300"}`}>
+                                                    #{tag}
+                                                </Text>
+                                                <View className={`px-1.5 py-0.5 rounded-md ${isFirst ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"}`}>
+                                                    <Text className={`text-[10px] font-extrabold ${isFirst ? "text-white" : "text-slate-500 dark:text-slate-400"}`}>
+                                                        {count}
+                                                    </Text>
                                                 </View>
                                             </View>
                                         );
                                     })}
-                            </View>
-                        )}
-                    </View>
-                </Animated.View>
-
-                {/* 3. 자주 쓴 태그 (Top Tags) */}
-                <Animated.View entering={FadeInDown.delay(600)} className="mb-6">
-                    <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm" style={{ elevation: 2 }}>
-                        <View className="flex-row items-center mb-5">
-                            <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center mr-3">
-                                <Ionicons name="pricetag" size={16} color="#7C3AED" />
-                            </View>
-                            <Text className="text-lg font-bold text-gray-800">자주 쓴 태그</Text>
+                                </View>
+                            )}
                         </View>
+                    </Animated.View>
 
-                        {topTags.length === 0 ? (
-                            <Text className="text-gray-400 text-center py-4">아직 태그가 없어요</Text>
-                        ) : (
-                            <View className="flex-row flex-wrap gap-2">
-                                {topTags.map(([tag, count]) => (
-                                    <View key={tag} className="bg-gray-50 px-4 py-2 rounded-2xl flex-row items-center border border-gray-100">
-                                        {/* 여기 태그에는 #을 하나만 붙여줌 */}
-                                        <Text className="text-gray-700 font-medium mr-1">#{tag}</Text>
-                                        <Text className="text-[#7C3AED] font-bold text-xs">{count}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </View>
-                </Animated.View>
-
-                {/* 4. 주간 활동 (Weekly Activity) */}
-                <Animated.View entering={FadeInDown.delay(700)} className="mb-10">
-                    <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm" style={{ elevation: 2 }}>
-                        <View className="flex-row items-center mb-6">
-                            <View className="w-8 h-8 bg-purple-100 rounded-full items-center justify-center mr-3">
-                                <Ionicons name="trending-up" size={16} color="#7C3AED" />
-                            </View>
-                            <Text className="text-lg font-bold text-gray-800">주간 활동</Text>
-                        </View>
-
-                        <View className="flex-row justify-around items-end h-40 pb-2">
-                            {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => {
-                                // 해당 요일의 일기 개수 계산
-                                const count = diaries.filter((d) => new Date(d.date).getDay() === index).length;
-
-                                // 최대값 계산 (0으로 나누기 방지)
-                                const maxCount = Math.max(...Array.from({ length: 7 }, (_, i) =>
-                                    diaries.filter(d => new Date(d.date).getDay() === i).length
-                                )) || 1;
-
-                                const heightPercent = (count / maxCount) * 100;
-                                const barHeight = count > 0 ? Math.max(heightPercent, 10) : 4; // 최소 높이
-
-                                return (
-                                    <View key={day} className="items-center flex-1">
-                                        <View className="h-32 justify-end w-full items-center mb-2">
-                                            <View
-                                                className={`w-3 rounded-full ${count > 0 ? 'bg-[#7C3AED]' : 'bg-gray-100'}`}
-                                                style={{ height: `${barHeight}%` }}
-                                            />
-                                        </View>
-                                        <Text className={`text-xs font-medium ${index === 0 ? 'text-red-400' : index === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
-                                            {day}
-                                        </Text>
-                                    </View>
-                                );
-                            })}
-                        </View>
-                    </View>
-                </Animated.View>
-
-            </ScrollView>
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 }

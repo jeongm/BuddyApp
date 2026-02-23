@@ -3,65 +3,103 @@
 @tailwind utilities;
 
 @layer base {
+
+    /* ◼️ DEFAULT (Monochrome - 극강의 미니멀리즘) */
     :root {
-        /* 기본 설정 */
-        --background: #F8F9FA;
-        --foreground: #030213;
-        /* oklch 변환 */
+        --background: #ffffff;
+        --foreground: #020617;
 
-        /* 카드 & 팝오버 */
-        --card: #ffffff;
-        --card-foreground: #030213;
-        --popover: #ffffff;
-        --popover-foreground: #030213;
-
-        /* 메인 컬러 (보라색) */
-        --primary: #7C3AED;
-        --primary-foreground: #ffffff;
-
-        /* 보조 컬러 */
-        --secondary: #F4F4F5;
-        --secondary-foreground: #030213;
-
-        /* 기타 */
-        --muted: #ececf0;
-        --muted-foreground: #717182;
-        --accent: #e9ebef;
-        --accent-foreground: #030213;
-
-        /* 경고/삭제 */
-        --destructive: #d4183d;
-        --destructive-foreground: #ffffff;
-
-        /* 테두리 & 입력창 */
-        --border: #e4e4e7;
-        --input: #e4e4e7;
-        --ring: #7C3AED;
-
-        /* 둥글기 (1rem = 16px) */
-        --radius: 16px;
+        /* 기본 모노톤 (Light) */
+        --color-primary-50: 248 250 252;
+        /* slate-50 */
+        --color-primary-100: 241 245 249;
+        --color-primary-200: 226 232 240;
+        --color-primary-300: 203 213 225;
+        --color-primary-400: 148 163 184;
+        --color-primary-500: 100 116 139;
+        --color-primary-600: 15 23 42;
+        /* 메인 버튼: Black (slate-900) */
+        --color-primary-700: 2 6 23;
+        --color-primary-800: 0 0 0;
+        --color-primary-900: 0 0 0;
     }
 
-    /* 다크 모드 (선택 사항) */
+    /* 다크모드일 때 모노톤 색상 자동 반전 */
     .dark {
-        --background: #09090b;
-        --foreground: #fafafa;
-        --card: #09090b;
-        --card-foreground: #fafafa;
-        --popover: #09090b;
-        --popover-foreground: #fafafa;
-        --primary: #fafafa;
-        --primary-foreground: #18181b;
-        --secondary: #27272a;
-        --secondary-foreground: #fafafa;
-        --muted: #27272a;
-        --muted-foreground: #a1a1aa;
-        --accent: #27272a;
-        --accent-foreground: #fafafa;
-        --destructive: #7f1d1d;
-        --destructive-foreground: #fafafa;
-        --border: #27272a;
-        --input: #27272a;
-        --ring: #d4d4d8;
+        --background: #020617;
+        --foreground: #ffffff;
+
+        --color-primary-50: 30 41 59;
+        /* slate-800 */
+        --color-primary-100: 51 65 85;
+        --color-primary-200: 71 85 105;
+        --color-primary-300: 148 163 184;
+        --color-primary-400: 203 213 225;
+        --color-primary-500: 226 232 240;
+        --color-primary-600: 255 255 255;
+        /* 메인 버튼: White 반전 */
+        --color-primary-700: 248 250 252;
+        --color-primary-800: 241 245 249;
+        --color-primary-900: 226 232 240;
+    }
+
+    /* 🪻 THEME: VIOLET (시그니처 보라색) */
+    .theme-violet {
+        --color-primary-50: 245 243 255;
+        --color-primary-100: 237 233 254;
+        --color-primary-200: 221 214 254;
+        --color-primary-300: 196 181 253;
+        --color-primary-400: 167 139 250;
+        --color-primary-500: 139 92 246;
+        --color-primary-600: 124 58 237;
+        /* violet-600 */
+        --color-primary-700: 109 40 217;
+        --color-primary-800: 91 33 182;
+        --color-primary-900: 76 29 149;
+    }
+
+    /* 🌹 THEME: ROSE (로즈 핑크) */
+    .theme-rose {
+        --color-primary-50: 255 241 242;
+        --color-primary-100: 255 228 230;
+        --color-primary-200: 254 205 211;
+        --color-primary-300: 253 164 175;
+        --color-primary-400: 251 113 133;
+        --color-primary-500: 244 63 94;
+        --color-primary-600: 225 29 72;
+        /* rose-600 */
+        --color-primary-700: 190 18 60;
+        --color-primary-800: 159 18 57;
+        --color-primary-900: 136 19 55;
+    }
+
+    /* 🌊 THEME: BLUE (오션 블루) */
+    .theme-blue {
+        --color-primary-50: 239 246 255;
+        --color-primary-100: 219 234 254;
+        --color-primary-200: 191 219 254;
+        --color-primary-300: 147 197 253;
+        --color-primary-400: 96 165 250;
+        --color-primary-500: 59 130 246;
+        --color-primary-600: 37 99 235;
+        /* blue-600 */
+        --color-primary-700: 29 78 216;
+        --color-primary-800: 30 64 175;
+        --color-primary-900: 30 58 138;
+    }
+
+    /* 🍃 THEME: GREEN (포레스트 그린) */
+    .theme-green {
+        --color-primary-50: 240 253 244;
+        --color-primary-100: 220 252 231;
+        --color-primary-200: 187 247 208;
+        --color-primary-300: 134 239 172;
+        --color-primary-400: 74 222 128;
+        --color-primary-500: 34 197 94;
+        --color-primary-600: 22 163 74;
+        /* green-600 */
+        --color-primary-700: 21 128 61;
+        --color-primary-800: 22 101 52;
+        --color-primary-900: 20 83 45;
     }
 }

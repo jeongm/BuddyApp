@@ -1,0 +1,230 @@
+import { Ionicons } from '@expo/vector-icons';
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+import { Image } from "expo-image";
+import * as ImagePicker from 'expo-image-picker';
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { diaryApi } from "../../api/diaryApi";
+import { IS_TEST_MODE } from "../../config";
+
+export default function DiaryEditorScreen() {
+    const router = useRouter();
+    const params = useLocalSearchParams<{ mode: string, date?: string, diaryId?: string, sessionId?: string }>();
+
+    const mode = params.mode as "create" | "edit";
+    const diaryId = params.diaryId ? Number(params.diaryId) : undefined;
+    const sessionId = params.sessionId ? Number(params.sessionId) : undefined;
+
+    const [targetDate, setTargetDate] = useState(params.date || new Date().toISOString().split("T")[0]);
+    const [title, setTitle] = useState("");
+    const [content, setContent] = useState("");
+    const [tags, setTags] = useState<string[]>([]);
+    const [inputTag, setInputTag] = useState("");
+
+    const [images, setImages] = useState<string[]>([]);
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+    const [isAiLoading, setIsAiLoading] = useState(false);
+
+    // ✨ 불필요했던 포커스 상태(isTagFocused) 삭제 완료!
+
+    useEffect(() => {
+        if (mode === "edit" && diaryId) fetchDiaryDetail(diaryId);
+        else if (mode === "create" && sessionId) fetchAIDiary(sessionId);
+    }, [mode, diaryId, sessionId]);
+
+    const fetchAIDiary = async (seq: number) => {
+        setIsAiLoading(true);
+        try {
+            const response = await diaryApi.createDiaryFromChat(seq);
+            if (response?.result) {
+                const d = response.result;
+                setTitle(d.title);
+                setContent(d.content);
+                if (d.tags) setTags(d.tags.map((t: any) => (typeof t === "string" ? t : t.name)));
+            }
+        } catch (error) {
+            Alert.alert("알림", "AI 초안을 불러오지 못했습니다.");
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    const fetchDiaryDetail = async (seq: number) => {
+        try {
+            if (IS_TEST_MODE) {
+                setTitle("테스트 일기");
+                setContent("내용");
+            } else {
+                const response = await diaryApi.getDiaryDetail(seq);
+                if (response?.result) {
+                    const d = response.result;
+                    setTitle(d.title);
+                    setContent(d.content);
+                    setTags(d.tags?.map((t: any) => t.name) || []);
+                    if (d.imageUrl) setImages([d.imageUrl]);
+                    else if (d.images && Array.isArray(d.images) && d.images.length > 0) {
+                        setImages(d.images.map((img: any) => typeof img === 'string' ? img : img.url));
+                    }
+                    if (d.diaryDate) setTargetDate(d.diaryDate);
+                }
+            }
+        } catch (error) {
+            Alert.alert("알림", "일기를 불러오지 못했습니다.");
+            router.back();
+        }
+    };
+
+    const handleTagSubmit = () => {
+        if (inputTag.trim() && !tags.includes(inputTag.trim())) {
+            setTags([...tags, inputTag.trim()]);
+        }
+        setInputTag("");
+    };
+
+    const removeTag = (t: string) => setTags(tags.filter((tag) => tag !== t));
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+        });
+        if (!result.canceled) {
+            setSelectedImageUri(result.assets[0].uri);
+            setImages([result.assets[0].uri]);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!title.trim() || !content.trim()) return Alert.alert("알림", "제목과 내용을 입력해주세요.");
+
+        try {
+            if (IS_TEST_MODE) {
+                router.replace('/calendar');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("request", JSON.stringify({ title, content, tags, diaryDate: targetDate, sessionSeq: sessionId }));
+
+            if (selectedImageUri) {
+                const filename = selectedImageUri.split('/').pop() || 'photo.jpg';
+                const match = /\.(\w+)$/.exec(filename);
+                formData.append("image", { uri: selectedImageUri, name: filename, type: match ? `image/${match[1]}` : `image` } as any);
+            }
+
+            if (mode === "edit" && diaryId) await diaryApi.updateDiary(diaryId, formData);
+            else await diaryApi.createDiary(formData);
+
+            router.replace('/calendar');
+        } catch (error) {
+            Alert.alert("오류", "저장 중 오류가 발생했습니다.");
+        }
+    };
+
+    const formattedDate = format(new Date(targetDate), "yyyy년 M월 d일 EEEE", { locale: ko });
+
+    return (
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top', 'bottom']}>
+            <Stack.Screen options={{ headerShown: false }} />
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+
+                <View className="flex-row items-center justify-between px-4 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md z-20 border-b border-slate-100 dark:border-slate-800/60">
+                    <TouchableOpacity onPress={() => router.back()} className="p-2">
+                        <Ionicons name="close" size={28} color="#64748B" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={handleSave} className="py-2 px-3 bg-primary-600 rounded-full shadow-sm">
+                        <Text className="text-[13px] font-extrabold text-white tracking-wide">완료</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {isAiLoading && (
+                    <View className="absolute inset-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-center">
+                        <ActivityIndicator size="large" color="#94A3B8" />
+                        <Text className="mt-4 text-sm text-slate-500 font-bold">버디가 초안을 정리하고 있어요...</Text>
+                    </View>
+                )}
+
+                <ScrollView className="flex-1 pt-8" contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+
+                    <View className="px-7 mb-10 items-center">
+                        <Text className="text-[13px] font-extrabold text-primary-600 dark:text-primary-400 uppercase tracking-widest mb-4">
+                            {formattedDate}
+                        </Text>
+
+                        <TextInput
+                            placeholder="제목을 입력하세요"
+                            placeholderTextColor="#CBD5E1"
+                            className="font-extrabold text-slate-900 dark:text-white text-center w-full"
+                            style={{ fontSize: 26, paddingVertical: 10 }}
+                            value={title}
+                            onChangeText={setTitle}
+                            multiline
+                        />
+
+                        {/* ✨ 1. 태그 입력부: 테두리나 배경 변화 없이, 오직 글자만 얌전하게 나타나는 퓨어(Pure) 디자인 */}
+                        <View className="flex-row flex-wrap justify-center items-center gap-2 mt-4">
+                            {tags.map((tag) => (
+                                <TouchableOpacity key={tag} onPress={() => removeTag(tag)} activeOpacity={0.6} className="bg-primary-50 dark:bg-primary-900/40 px-3 py-1.5 rounded-md border border-primary-100/50 dark:border-primary-800/50 flex-row items-center gap-1.5">
+                                    <Text className="text-primary-600 dark:text-primary-300 text-[11px] font-extrabold uppercase tracking-wider">#{tag}</Text>
+                                    <Ionicons name="close" size={12} color="#94A3B8" />
+                                </TouchableOpacity>
+                            ))}
+
+                            <View className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md px-3 justify-center">
+                                <TextInput
+                                    value={inputTag}
+                                    onChangeText={setInputTag}
+                                    onSubmitEditing={handleTagSubmit}
+                                    placeholder="+ 태그 추가"
+                                    placeholderTextColor="#94A3B8"
+                                    className="text-[12px] font-extrabold tracking-wider py-1.5 text-slate-500 dark:text-slate-400 min-w-[70px] text-center"
+                                    returnKeyType="done"
+                                    blurOnSubmit={false} // 연속 타이핑 편의성 유지!
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    <View className="px-5 mb-8">
+                        {images.length > 0 ? (
+                            <View className="relative shadow-sm">
+                                <Image source={{ uri: images[0] }} style={{ width: '100%', height: 280, borderRadius: 24, backgroundColor: '#F1F5F9' }} contentFit="cover" />
+                                <TouchableOpacity
+                                    onPress={() => { setImages([]); setSelectedImageUri(null); }}
+                                    className="absolute top-4 right-4 bg-slate-900/60 backdrop-blur-md w-8 h-8 rounded-full items-center justify-center"
+                                >
+                                    <Ionicons name="close" size={16} color="white" />
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <TouchableOpacity onPress={pickImage} activeOpacity={0.6} className="w-full h-24 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50 items-center justify-center flex-row gap-2">
+                                <Ionicons name="image-outline" size={24} color="#94A3B8" />
+                                <Text className="text-sm font-bold text-slate-400 dark:text-slate-500">사진 첨부하기</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* ✨ 2. 본문 커서 크기 버그 해결: lineHeight 속성을 완전히 삭제! */}
+                    <View className="px-7">
+                        <TextInput
+                            placeholder="오늘의 이야기를 자유롭게 기록해보세요..."
+                            placeholderTextColor="#94A3B8"
+                            multiline
+                            textAlignVertical="top"
+                            className="w-full min-h-[400px] text-slate-700 dark:text-slate-300 font-medium mb-10"
+                            style={{ fontSize: 16, paddingTop: 10 }} // lineHeight 제거 완료
+                            value={content}
+                            onChangeText={setContent}
+                        />
+                    </View>
+                </ScrollView>
+
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
+}
