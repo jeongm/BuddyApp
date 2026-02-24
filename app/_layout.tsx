@@ -18,20 +18,24 @@ export default function RootLayout() {
   const { theme, accent } = useThemeStore();
 
   useEffect(() => {
-    // ✨ 에러 방지: 테마가 바뀔 때만 안전하게 NativeWind 엔진에 전달
-    if (theme !== colorScheme) {
-      // 시스템 모드일 땐 기본적으로 light로 설정 (필요시 기기 테마 감지 로직 추가)
+    // ✨ 핵심 해결책: 네비게이션 트리가 완전히 생성될 수 있도록 아주 살짝 딜레이(비동기)를 줍니다!
+    const timer = setTimeout(() => {
       const targetTheme = theme === 'system' ? 'light' : theme;
-      setColorScheme(targetTheme);
-    }
-  }, [theme]);
+      if (targetTheme !== colorScheme) {
+        setColorScheme(targetTheme);
+      }
+    }, 10); // 10ms 딜레이 부여
 
-  // ✨ 핵심 해결책: ThemeProvider를 View 밖(최상단)으로 완전히 빼서 뼈대 붕괴를 원천 차단!
+    // 컴포넌트 언마운트 시 타이머 청소 (메모리 누수 방지)
+    return () => clearTimeout(timer);
+  }, [theme, colorScheme]); // ✨ colorScheme도 의존성 배열에 추가하여 안전성 확보
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <View style={{ flex: 1 }} className={`theme-${accent}`}>
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
+          {/* ✨ 핵심: (tabs) 그룹 전체에 스와이프 뒤로가기 완벽 차단! 여기서 막아야 로그인 창으로 안 튕깁니다. */}
+          <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
           <Stack.Screen name="auth/login" />
           <Stack.Screen name="auth/signup" />
           <Stack.Screen name="chat/index" />

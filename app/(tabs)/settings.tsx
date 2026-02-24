@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
@@ -16,10 +16,12 @@ import { IS_TEST_MODE } from "../../config";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useThemeStore, type AccentColor } from "../../store/useThemeStore";
 
+// ✨ 마법의 스케일링 함수
+const { width } = Dimensions.get('window');
+const scale = (size: number) => Math.round((width / 430) * size);
+
 export default function SettingsScreen() {
     const { user, logout, updateUserInfo } = useAuthStore();
-
-    // ✨ 상태 관리는 100% 안전한 기존 방식(Zustand)만 사용!
     const { theme, setTheme, accent, setAccent } = useThemeStore();
 
     const [editingField, setEditingField] = useState<"nickname" | "buddyName" | null>(null);
@@ -80,7 +82,7 @@ export default function SettingsScreen() {
                     try {
                         if (!IS_TEST_MODE) await memberApi.deleteAccount();
                         logout();
-                        router.replace("/auth/login");
+                        router.replace("/");
                     } catch (error) {
                         Alert.alert("오류", "회원 탈퇴 처리에 실패했습니다.");
                     }
@@ -92,7 +94,7 @@ export default function SettingsScreen() {
     const handleLogout = () => {
         Alert.alert("로그아웃", "로그아웃 하시겠습니까?", [
             { text: "취소", style: "cancel" },
-            { text: "확인", onPress: () => { logout(); router.replace("/auth/login"); } }
+            { text: "확인", onPress: () => { logout(); router.replace("/"); } }
         ]);
     };
 
@@ -106,60 +108,71 @@ export default function SettingsScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
-            <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60">
-                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+
+            {/* ✨ 메인 탭 방어막: 스와이프 뒤로가기 완벽 차단! */}
+            <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+
+            {/* ✨ 헤더 타이틀 (다른 탭들과 동일한 안정적인 규격) */}
+            <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-20 border-b border-slate-100 dark:border-slate-800/60">
+                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" allowFontScaling={false}>
                     Settings
                 </Text>
             </View>
 
-            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(120) }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-                {/* 1. 히어로 프로필 */}
-                <View className="items-center pt-10 pb-10">
-                    <View className="w-28 h-28 rounded-full bg-slate-50 dark:bg-slate-900 items-center justify-center border border-slate-100 dark:border-slate-800/60 shadow-sm mb-5">
-                        <Image source={myCharacter.img} style={{ width: 84, height: 84 }} contentFit="contain" />
+                {/* 1. 상단 프로필 영역 */}
+                <View className="items-center" style={{ paddingTop: scale(40), paddingBottom: scale(40) }}>
+                    <View className="rounded-full bg-slate-50 dark:bg-slate-900 items-center justify-center border border-slate-100 dark:border-slate-800/60 shadow-sm" style={{ width: scale(112), height: scale(112), marginBottom: scale(20) }}>
+                        <Image source={myCharacter.img} style={{ width: scale(84), height: scale(84) }} contentFit="contain" />
                     </View>
-                    <Text className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">{user?.nickname}</Text>
-                    <Text className="text-sm font-medium text-slate-400 dark:text-slate-500 mb-4">{user?.email}</Text>
+                    <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(24), marginBottom: scale(4) }} allowFontScaling={false}>{user?.nickname}</Text>
+                    <Text className="font-medium text-slate-400 dark:text-slate-500" style={{ fontSize: scale(14), marginBottom: scale(16) }} allowFontScaling={false}>{user?.email}</Text>
 
-                    <View className="bg-primary-50 dark:bg-primary-900/40 px-4 py-1.5 rounded-full border border-primary-100/50 dark:border-primary-800/50">
-                        <Text className="text-xs font-extrabold tracking-wide text-primary-600 dark:text-primary-400 uppercase">
+                    <View className="bg-primary-50 dark:bg-primary-900/40 rounded-full border border-primary-100/50 dark:border-primary-800/50" style={{ paddingHorizontal: scale(16), paddingVertical: scale(6) }}>
+                        <Text className="font-extrabold tracking-wide text-primary-600 dark:text-primary-400 uppercase" style={{ fontSize: scale(12) }} allowFontScaling={false}>
                             단짝 버디 : {user?.characterNickname || myCharacter.name}
                         </Text>
                     </View>
                 </View>
 
-                {/* 2. 일반 설정 (애플 Inset Grouped 박스) */}
-                <View className="px-5 mb-8">
-                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Profile Info</Text>
+                {/* 2. 내 정보 수정 영역 */}
+                <View style={{ paddingHorizontal: scale(20), marginBottom: scale(32) }}>
+                    <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest" style={{ fontSize: scale(12), marginLeft: scale(16), marginBottom: scale(8) }} allowFontScaling={false}>Profile Info</Text>
 
-                    <View className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden">
-                        <View className="px-5 py-4 flex-row items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50">
-                            <Text className="text-[15px] font-bold text-slate-700 dark:text-slate-300 w-24">내 닉네임</Text>
+                    <View className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 overflow-hidden" style={{ borderRadius: scale(24) }}>
+                        {/* 닉네임 수정 */}
+                        <View className="flex-row items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50" style={{ paddingHorizontal: scale(20), paddingVertical: scale(16) }}>
+                            <Text className="font-bold text-slate-700 dark:text-slate-300" style={{ fontSize: scale(15), width: scale(80) }} allowFontScaling={false}>내 닉네임</Text>
                             {editingField === "nickname" ? (
-                                <View className="flex-row items-center flex-1 justify-end gap-3">
-                                    <TextInput autoFocus className="flex-1 text-right text-[15px] font-bold text-slate-900 dark:text-white border-b border-primary-500/50 py-1" value={inputValue} onChangeText={setInputValue} onSubmitEditing={handleEditSave} />
-                                    <TouchableOpacity onPress={handleEditSave} className="bg-primary-600 px-3 py-1.5 rounded-full"><Text className="text-white text-[11px] font-extrabold tracking-wide">저장</Text></TouchableOpacity>
+                                <View className="flex-row items-center flex-1 justify-end" style={{ gap: scale(12) }}>
+                                    <TextInput autoFocus className="flex-1 text-right font-bold text-slate-900 dark:text-white border-b border-primary-500/50" style={{ fontSize: scale(15), paddingVertical: scale(4) }} value={inputValue} onChangeText={setInputValue} onSubmitEditing={handleEditSave} allowFontScaling={false} />
+                                    <TouchableOpacity onPress={handleEditSave} className="bg-primary-600 rounded-full" style={{ paddingHorizontal: scale(12), paddingVertical: scale(6) }}>
+                                        <Text className="text-white font-extrabold tracking-wide" style={{ fontSize: scale(11) }} allowFontScaling={false}>저장</Text>
+                                    </TouchableOpacity>
                                 </View>
                             ) : (
-                                <TouchableOpacity onPress={() => handleEditStart("nickname", user?.nickname || "")} className="flex-row items-center flex-1 justify-end gap-2" activeOpacity={0.6}>
-                                    <Text className="text-[15px] font-medium text-slate-500 dark:text-slate-400">{user?.nickname}</Text>
-                                    <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+                                <TouchableOpacity onPress={() => handleEditStart("nickname", user?.nickname || "")} className="flex-row items-center flex-1 justify-end" style={{ gap: scale(8) }} activeOpacity={0.6}>
+                                    <Text className="font-medium text-slate-500 dark:text-slate-400" style={{ fontSize: scale(15) }} allowFontScaling={false}>{user?.nickname}</Text>
+                                    <Ionicons name="chevron-forward" size={scale(16)} color="#CBD5E1" />
                                 </TouchableOpacity>
                             )}
                         </View>
 
-                        <View className="px-5 py-4 flex-row items-center justify-between">
-                            <Text className="text-[15px] font-bold text-slate-700 dark:text-slate-300 w-24">버디 이름</Text>
+                        {/* 버디 이름 수정 */}
+                        <View className="flex-row items-center justify-between" style={{ paddingHorizontal: scale(20), paddingVertical: scale(16) }}>
+                            <Text className="font-bold text-slate-700 dark:text-slate-300" style={{ fontSize: scale(15), width: scale(80) }} allowFontScaling={false}>버디 이름</Text>
                             {editingField === "buddyName" ? (
-                                <View className="flex-row items-center flex-1 justify-end gap-3">
-                                    <TextInput autoFocus className="flex-1 text-right text-[15px] font-bold text-slate-900 dark:text-white border-b border-primary-500/50 py-1" value={inputValue} onChangeText={setInputValue} onSubmitEditing={handleEditSave} />
-                                    <TouchableOpacity onPress={handleEditSave} className="bg-primary-600 px-3 py-1.5 rounded-full"><Text className="text-white text-[11px] font-extrabold tracking-wide">저장</Text></TouchableOpacity>
+                                <View className="flex-row items-center flex-1 justify-end" style={{ gap: scale(12) }}>
+                                    <TextInput autoFocus className="flex-1 text-right font-bold text-slate-900 dark:text-white border-b border-primary-500/50" style={{ fontSize: scale(15), paddingVertical: scale(4) }} value={inputValue} onChangeText={setInputValue} onSubmitEditing={handleEditSave} allowFontScaling={false} />
+                                    <TouchableOpacity onPress={handleEditSave} className="bg-primary-600 rounded-full" style={{ paddingHorizontal: scale(12), paddingVertical: scale(6) }}>
+                                        <Text className="text-white font-extrabold tracking-wide" style={{ fontSize: scale(11) }} allowFontScaling={false}>저장</Text>
+                                    </TouchableOpacity>
                                 </View>
                             ) : (
-                                <TouchableOpacity onPress={() => handleEditStart("buddyName", user?.characterNickname || "")} className="flex-row items-center flex-1 justify-end gap-2" activeOpacity={0.6}>
-                                    <Text className="text-[15px] font-medium text-slate-500 dark:text-slate-400">{user?.characterNickname}</Text>
-                                    <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+                                <TouchableOpacity onPress={() => handleEditStart("buddyName", user?.characterNickname || "")} className="flex-row items-center flex-1 justify-end" style={{ gap: scale(8) }} activeOpacity={0.6}>
+                                    <Text className="font-medium text-slate-500 dark:text-slate-400" style={{ fontSize: scale(15) }} allowFontScaling={false}>{user?.characterNickname}</Text>
+                                    <Ionicons name="chevron-forward" size={scale(16)} color="#CBD5E1" />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -167,43 +180,49 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* 3. 디스플레이 & 테마 */}
-                <View className="px-5 mb-10">
-                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Display & Color</Text>
+                <View style={{ paddingHorizontal: scale(20), marginBottom: scale(40) }}>
+                    <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest" style={{ fontSize: scale(12), marginLeft: scale(16), marginBottom: scale(8) }} allowFontScaling={false}>Display & Color</Text>
 
-                    <View className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden px-5 py-6">
-                        <View className="flex-row bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-8">
+                    <View className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 overflow-hidden" style={{ borderRadius: scale(24), paddingHorizontal: scale(20), paddingVertical: scale(24) }}>
+                        <View className="flex-row bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl" style={{ padding: scale(6), marginBottom: scale(32) }}>
                             {[{ id: 'system', label: '기기 설정' }, { id: 'light', label: '라이트' }, { id: 'dark', label: '다크' }].map((t) => {
                                 const isSelected = theme === t.id;
                                 if (isSelected) {
                                     return (
-                                        <View key={t.id} className="flex-1 py-3 rounded-xl items-center justify-center bg-white dark:bg-slate-700 shadow-sm">
-                                            <Text className="text-[13px] tracking-tight font-extrabold text-slate-900 dark:text-white">{t.label}</Text>
+                                        <View key={t.id} className="flex-1 rounded-xl items-center justify-center bg-white dark:bg-slate-700 shadow-sm" style={{ paddingVertical: scale(12) }}>
+                                            <Text className="tracking-tight font-extrabold text-slate-900 dark:text-white" style={{ fontSize: scale(13) }} allowFontScaling={false}>{t.label}</Text>
                                         </View>
                                     );
                                 }
                                 return (
                                     <TouchableOpacity
                                         key={t.id}
-                                        // ✨ 에러를 유발하던 코드를 빼고 안전하게 기존 상태만 업데이트합니다!
-                                        onPress={() => setTheme(t.id as any)}
+                                        onPress={() => setTimeout(() => setTheme(t.id as any), 50)}
                                         activeOpacity={0.8}
-                                        className="flex-1 py-3 rounded-xl items-center justify-center bg-transparent"
+                                        className="flex-1 rounded-xl items-center justify-center bg-transparent"
+                                        style={{ paddingVertical: scale(12) }}
                                     >
-                                        <Text className="text-[13px] tracking-tight font-bold text-slate-500 dark:text-slate-400">{t.label}</Text>
+                                        <Text className="tracking-tight font-bold text-slate-500 dark:text-slate-400" style={{ fontSize: scale(13) }} allowFontScaling={false}>{t.label}</Text>
                                     </TouchableOpacity>
                                 );
                             })}
                         </View>
 
-                        <View className="flex-row justify-between items-center px-2">
+                        <View className="flex-row justify-between items-center" style={{ paddingHorizontal: scale(8) }}>
                             {accentColors.map((color) => {
                                 const isSelected = accent === color.id;
                                 return (
-                                    <TouchableOpacity key={color.id} onPress={() => setAccent(color.id)} activeOpacity={0.8} className="items-center gap-2">
-                                        <View className={`w-10 h-10 rounded-full items-center justify-center transition-all duration-300 ${isSelected ? 'scale-110 shadow-md' : 'scale-100'}`} style={{ backgroundColor: color.hex, opacity: isSelected ? 1 : 0.3 }}>
-                                            {isSelected && <Ionicons name="checkmark" size={20} color="white" />}
+                                    <TouchableOpacity
+                                        key={color.id}
+                                        onPress={() => setTimeout(() => setAccent(color.id), 50)}
+                                        activeOpacity={0.8}
+                                        className="items-center"
+                                        style={{ gap: scale(8) }}
+                                    >
+                                        <View className={`rounded-full items-center justify-center transition-all duration-300 ${isSelected ? 'scale-110 shadow-md' : 'scale-100'}`} style={{ width: scale(40), height: scale(40), backgroundColor: color.hex, opacity: isSelected ? 1 : 0.3 }}>
+                                            {isSelected && <Ionicons name="checkmark" size={scale(20)} color="white" />}
                                         </View>
-                                        <Text className={`text-[10px] font-extrabold tracking-wide ${isSelected ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400'}`}>{color.label}</Text>
+                                        <Text className={`font-extrabold tracking-wide ${isSelected ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400'}`} style={{ fontSize: scale(10) }} allowFontScaling={false}>{color.label}</Text>
                                     </TouchableOpacity>
                                 );
                             })}
@@ -212,10 +231,10 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* 4. 캐릭터 변경 */}
-                <View className="px-5 mb-10">
-                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Select Buddy</Text>
+                <View style={{ paddingHorizontal: scale(20), marginBottom: scale(40) }}>
+                    <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest" style={{ fontSize: scale(12), marginLeft: scale(16), marginBottom: scale(8) }} allowFontScaling={false}>Select Buddy</Text>
 
-                    <View className="flex-row justify-between mb-6">
+                    <View className="flex-row justify-between" style={{ marginBottom: scale(24) }}>
                         {characters.map((char) => {
                             const isSelected = selectedCharSeq === char.seq;
                             return (
@@ -223,49 +242,47 @@ export default function SettingsScreen() {
                                     key={char.seq}
                                     onPress={() => setSelectedCharSeq(char.seq)}
                                     activeOpacity={0.7}
-                                    className={`w-[30%] aspect-square rounded-[2rem] items-center justify-center border-2 transition-all duration-300 ${isSelected
-                                            ? "bg-primary-50 dark:bg-primary-900/40 border-primary-500"
-                                            : "bg-slate-50 dark:bg-slate-900 border-transparent opacity-60"
-                                        }`}
+                                    className={`items-center justify-center border-2 transition-all duration-300 ${isSelected ? "bg-primary-50 dark:bg-primary-900/40 border-primary-500" : "bg-slate-50 dark:bg-slate-900 border-transparent opacity-60"}`}
+                                    style={{ width: '31%', aspectRatio: 1, borderRadius: scale(24) }}
                                 >
-                                    <Image source={char.img} style={{ width: 56, height: 56, marginBottom: 8 }} contentFit="contain" />
-                                    <Text className={`text-[11px] font-extrabold ${isSelected ? "text-primary-600 dark:text-primary-400" : "text-slate-500 dark:text-slate-400"}`}>{char.name}</Text>
+                                    <Image source={char.img} style={{ width: scale(56), height: scale(56), marginBottom: scale(8) }} contentFit="contain" />
+                                    <Text className={`font-extrabold ${isSelected ? "text-primary-600 dark:text-primary-400" : "text-slate-500 dark:text-slate-400"}`} style={{ fontSize: scale(11) }} allowFontScaling={false}>{char.name}</Text>
                                 </TouchableOpacity>
                             );
                         })}
                     </View>
 
                     {isCurrentChar ? (
-                        <View className="w-full py-4 rounded-2xl items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60">
-                            <Text className="font-extrabold text-[13px] text-slate-400 dark:text-slate-500">현재 함께하고 있는 버디입니다</Text>
+                        <View className="w-full rounded-2xl items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60" style={{ paddingVertical: scale(16) }}>
+                            <Text className="font-extrabold text-slate-400 dark:text-slate-500" style={{ fontSize: scale(13) }} allowFontScaling={false}>현재 함께하고 있는 버디입니다</Text>
                         </View>
                     ) : (
-                        <TouchableOpacity onPress={handleCharacterSave} className="w-full py-4 rounded-2xl items-center justify-center bg-primary-600 active:opacity-80 shadow-sm shadow-primary-300 dark:shadow-none">
-                            <Text className="font-extrabold text-[13px] tracking-wide text-white">이 버디로 변경하기</Text>
+                        <TouchableOpacity onPress={handleCharacterSave} className="w-full rounded-2xl items-center justify-center bg-primary-600 active:opacity-80 shadow-sm shadow-primary-300 dark:shadow-none" style={{ paddingVertical: scale(16) }}>
+                            <Text className="font-extrabold tracking-wide text-white" style={{ fontSize: scale(13) }} allowFontScaling={false}>이 버디로 변경하기</Text>
                         </TouchableOpacity>
                     )}
                 </View>
 
                 {/* 5. 계정 관리 */}
-                <View className="px-5 mb-6">
-                    <Text className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2">Account</Text>
+                <View style={{ paddingHorizontal: scale(20), marginBottom: scale(24) }}>
+                    <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest" style={{ fontSize: scale(12), marginLeft: scale(16), marginBottom: scale(8) }} allowFontScaling={false}>Account</Text>
 
-                    <View className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden">
-                        <TouchableOpacity onPress={handleLogout} activeOpacity={0.6} className="px-5 py-4 flex-row items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50">
-                            <Text className="text-[15px] font-bold text-slate-700 dark:text-slate-300">로그아웃</Text>
-                            <Ionicons name="log-out-outline" size={20} color="#94A3B8" />
+                    <View className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 overflow-hidden" style={{ borderRadius: scale(24) }}>
+                        <TouchableOpacity onPress={handleLogout} activeOpacity={0.6} className="flex-row items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50" style={{ paddingHorizontal: scale(20), paddingVertical: scale(16) }}>
+                            <Text className="font-bold text-slate-700 dark:text-slate-300" style={{ fontSize: scale(15) }} allowFontScaling={false}>로그아웃</Text>
+                            <Ionicons name="log-out-outline" size={scale(20)} color="#94A3B8" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.6} className="px-5 py-4 flex-row items-center justify-between">
-                            <Text className="text-[15px] font-bold text-red-500 dark:text-red-400">회원 탈퇴</Text>
-                            <Ionicons name="warning-outline" size={20} color="#EF4444" />
+                        <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.6} className="flex-row items-center justify-between" style={{ paddingHorizontal: scale(20), paddingVertical: scale(16) }}>
+                            <Text className="font-bold text-red-500 dark:text-red-400" style={{ fontSize: scale(15) }} allowFontScaling={false}>회원 탈퇴</Text>
+                            <Ionicons name="warning-outline" size={scale(20)} color="#EF4444" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                <View className="items-center mt-6 mb-10 opacity-30">
-                    <Text className="text-[10px] text-slate-500 font-extrabold tracking-widest uppercase mb-1">My Buddy</Text>
-                    <Text className="text-[9px] text-slate-500 font-bold tracking-wider">Version 1.0.0</Text>
+                <View className="items-center opacity-30" style={{ marginTop: scale(24), marginBottom: scale(40) }}>
+                    <Text className="text-slate-500 font-extrabold tracking-widest uppercase" style={{ fontSize: scale(10), marginBottom: scale(4) }} allowFontScaling={false}>My Buddy</Text>
+                    <Text className="text-slate-500 font-bold tracking-wider" style={{ fontSize: scale(9) }} allowFontScaling={false}>Version 1.0.0</Text>
                 </View>
 
             </ScrollView>

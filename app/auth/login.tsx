@@ -1,19 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi } from '../../api/axios';
 import { IS_TEST_MODE } from '../../config';
 import { useAuthStore } from '../../store/useAuthStore';
 
+// ✨ 마법의 스케일링 함수 추가 (아이폰 16 Pro Max 430px 기준)
+const { width } = Dimensions.get('window');
+const scale = (size: number) => Math.round((width / 430) * size);
+
 export default function LoginScreen() {
   const router = useRouter();
   const { setTokens, setUser } = useAuthStore();
 
-  // ✨ 시스템 테마(라이트/다크) 감지
   const colorScheme = useColorScheme();
-  const activeColor = colorScheme === 'dark' ? '#FFFFFF' : '#0F172A'; // 다크모드: 화이트, 라이트모드: 블랙(Slate-900)
+  const activeColor = colorScheme === 'dark' ? '#FFFFFF' : '#0F172A';
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +44,7 @@ export default function LoginScreen() {
         };
         setTokens(fakeResponse.accessToken, fakeResponse.refreshToken);
         setUser(fakeResponse.member);
+        // ✨ 여기서 replace를 써주신 덕분에 뒤로가기 과거 기록이 깔끔하게 삭제됩니다!
         router.replace("/(tabs)/home");
       } else {
         const response = await authApi.post('/api/v1/auth/login', { email, password });
@@ -48,6 +52,7 @@ export default function LoginScreen() {
 
         setTokens(result.accessToken, result.refreshToken);
         if (result.member) setUser(result.member);
+        // ✨ 실무에서도 완벽한 replace 처리!
         router.replace("/(tabs)/home");
       }
     } catch (error: any) {
@@ -61,23 +66,32 @@ export default function LoginScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: 80, paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <View className="mb-12">
-            <Text className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+        {/* 뒤로가기 버튼 영역 (버튼 크기와 아이콘 크기도 스케일링) */}
+        <View className="px-6 pt-2 pb-2">
+          <TouchableOpacity onPress={() => router.back()} style={{ width: scale(40), height: scale(40) }} className="justify-center">
+            <Ionicons name="arrow-back" size={scale(26)} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: scale(32), paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+          {/* 상단 타이틀 영역 */}
+          <View style={{ marginBottom: scale(48) }}>
+            <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight mb-2" style={{ fontSize: scale(36) }} allowFontScaling={false}>
               Welcome
             </Text>
-            <Text className="text-base font-medium text-slate-500 dark:text-slate-400">
+            <Text className="font-medium text-slate-500 dark:text-slate-400" style={{ fontSize: scale(16) }} allowFontScaling={false}>
               버디와 함께 하루를 기록해봐요.
             </Text>
           </View>
 
           {/* 1. 이메일 입력 */}
-          <View className="mb-5">
-            <Text className="text-[12px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-2">Email</Text>
-            {/* ✨ 포커스 시 블랙/화이트 보더 적용 */}
-            <View className={`flex-row items-center bg-slate-50 dark:bg-slate-900 h-14 px-4 rounded-2xl border-2 transition-colors ${isEmailFocused ? "border-slate-900 dark:border-white" : "border-transparent"}`}>
-              <Ionicons name="mail" size={20} color={isEmailFocused ? activeColor : "#94A3B8"} />
+          <View style={{ marginBottom: scale(20) }}>
+            <Text className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Email</Text>
+
+            <View style={{ height: scale(56) }} className={`flex-row items-center bg-slate-50 dark:bg-slate-900 px-4 rounded-2xl border-2 transition-colors ${isEmailFocused ? "border-slate-900 dark:border-white" : "border-transparent"}`}>
+              <Ionicons name="mail" size={scale(20)} color={isEmailFocused ? activeColor : "#94A3B8"} />
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -87,17 +101,19 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 placeholder="이메일을 입력하세요"
                 placeholderTextColor="#94A3B8"
-                className="flex-1 ml-3 text-[15px] font-bold text-slate-900 dark:text-white"
+                className="flex-1 ml-3 font-bold text-slate-900 dark:text-white"
+                style={{ fontSize: scale(15), paddingVertical: 0 }}
+                allowFontScaling={false}
               />
             </View>
           </View>
 
           {/* 2. 비밀번호 입력 */}
-          <View className="mb-8">
-            <Text className="text-[12px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-2">Password</Text>
-            {/* ✨ 포커스 시 블랙/화이트 보더 적용 */}
-            <View className={`flex-row items-center bg-slate-50 dark:bg-slate-900 h-14 px-4 rounded-2xl border-2 transition-colors ${isPasswordFocused ? "border-slate-900 dark:border-white" : "border-transparent"}`}>
-              <Ionicons name="lock-closed" size={20} color={isPasswordFocused ? activeColor : "#94A3B8"} />
+          <View style={{ marginBottom: scale(32) }}>
+            <Text className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Password</Text>
+
+            <View style={{ height: scale(56) }} className={`flex-row items-center bg-slate-50 dark:bg-slate-900 px-4 rounded-2xl border-2 transition-colors ${isPasswordFocused ? "border-slate-900 dark:border-white" : "border-transparent"}`}>
+              <Ionicons name="lock-closed" size={scale(20)} color={isPasswordFocused ? activeColor : "#94A3B8"} />
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -106,33 +122,35 @@ export default function LoginScreen() {
                 secureTextEntry={!showPassword}
                 placeholder="비밀번호를 입력하세요"
                 placeholderTextColor="#94A3B8"
-                className="flex-1 ml-3 text-[15px] font-bold text-slate-900 dark:text-white"
+                className="flex-1 ml-3 font-bold text-slate-900 dark:text-white"
+                style={{ fontSize: scale(15), paddingVertical: 0 }}
+                allowFontScaling={false}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-1">
-                <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#94A3B8" />
+                <Ionicons name={showPassword ? "eye-off" : "eye"} size={scale(20)} color="#94A3B8" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* ✨ 로그인 버튼 (블랙 & 화이트) */}
+          {/* 로그인 버튼 */}
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
             activeOpacity={0.8}
-            className={`w-full h-14 rounded-2xl items-center justify-center shadow-sm ${loading ? "bg-slate-300 dark:bg-slate-700" : "bg-slate-900 dark:bg-white"}`}
+            style={{ height: scale(56) }}
+            className={`w-full rounded-2xl items-center justify-center shadow-sm ${loading ? "bg-slate-300 dark:bg-slate-700" : "bg-slate-900 dark:bg-white"}`}
           >
-            <Text className={`font-extrabold text-[15px] tracking-widest uppercase ${loading ? "text-slate-500 dark:text-slate-400" : "text-white dark:text-slate-900"}`}>
+            <Text className={`font-extrabold tracking-widest uppercase ${loading ? "text-slate-500 dark:text-slate-400" : "text-white dark:text-slate-900"}`} style={{ fontSize: scale(15) }} allowFontScaling={false}>
               {loading ? "로그인 중..." : "Login"}
             </Text>
           </TouchableOpacity>
 
           <View className="flex-row justify-center items-center mt-8">
-            <Text className="text-[13px] font-medium text-slate-500 dark:text-slate-400 mr-2">
+            <Text className="font-medium text-slate-500 dark:text-slate-400 mr-2" style={{ fontSize: scale(13) }} allowFontScaling={false}>
               아직 계정이 없으신가요?
             </Text>
             <TouchableOpacity onPress={() => router.push('/auth/signup')}>
-              {/* ✨ 회원가입 링크 색상도 모노톤으로 통일 */}
-              <Text className="text-[13px] text-slate-900 dark:text-white font-extrabold underline">
+              <Text className="text-slate-900 dark:text-white font-extrabold underline" style={{ fontSize: scale(13) }} allowFontScaling={false}>
                 회원가입
               </Text>
             </TouchableOpacity>

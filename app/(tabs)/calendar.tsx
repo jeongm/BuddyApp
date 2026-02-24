@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, addMonths, endOfMonth, endOfWeek, format, getMonth, getYear, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, useColorScheme } from "react-native";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, Text, TouchableOpacity, View, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { diaryApi, type DailyDiaryCount } from "../../api/diaryApi";
 import type { DiarySummary } from "../../types/diary";
 
-const fabShadow = { elevation: 8, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } };
+const { width } = Dimensions.get("window");
+const scale = (size: number) => Math.round((width / 430) * size);
+const fabShadow = { elevation: 8, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: scale(12), shadowOffset: { width: 0, height: scale(6) } };
 
 export default function CalendarScreen() {
     const router = useRouter();
@@ -23,26 +25,23 @@ export default function CalendarScreen() {
     const [monthlyCounts, setMonthlyCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(false);
 
-    // ✨ 핵심 버그 해결: 이미 처리한 sessionId나 openDiaryId를 기억하여 중복 실행 방지!
+    const [refreshing, setRefreshing] = useState(false);
+
     const processedSession = useRef<string | null>(null);
     const processedDiary = useRef<string | null>(null);
 
     useEffect(() => {
-        // 1. 대화 종료 후 AI 일기 생성 모드로 넘어올 때
         if (params.sessionId && processedSession.current !== params.sessionId) {
-            processedSession.current = params.sessionId; // ✨ 톨게이트 통과 기록 남기기
+            processedSession.current = params.sessionId;
             router.push({ pathname: '/diary-screen/editor', params: { mode: 'create', date: params.date, sessionId: params.sessionId } });
         }
-
-        // 2. 특정 일기를 열어볼 때
         if (params.openDiaryId && params.targetDate && processedDiary.current !== params.openDiaryId) {
-            processedDiary.current = params.openDiaryId; // ✨ 톨게이트 통과 기록 남기기
+            processedDiary.current = params.openDiaryId;
             const target = new Date(params.targetDate);
             setSelectedDate(target);
             setCurrentMonth(target);
             router.push({ pathname: '/diary-screen/viewer', params: { id: params.openDiaryId } });
         }
-        // ✨ 의존성 배열(dependency array)에 params 전체가 아닌 원시값들만 명시하여 불필요한 재실행 완벽 차단!
     }, [params.sessionId, params.date, params.openDiaryId, params.targetDate]);
 
     const monthStart = startOfMonth(currentMonth);
@@ -50,8 +49,20 @@ export default function CalendarScreen() {
     const startDate = startOfWeek(monthStart);
     const endDate = endOfWeek(monthEnd);
 
-    const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-    const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+    // ✨ 핵심 해결 로직: 달력을 넘길 때 '보여주는 월'과 '선택된 날짜'를 동시에 변경합니다.
+    const handlePrevMonth = () => {
+        const newMonth = subMonths(currentMonth, 1);
+        setCurrentMonth(newMonth);
+        // 현실의 이번 달로 돌아오면 '오늘', 아니면 '그 달의 1일'을 자동 선택!
+        setSelectedDate(isSameMonth(newMonth, new Date()) ? new Date() : startOfMonth(newMonth));
+    };
+
+    const handleNextMonth = () => {
+        const newMonth = addMonths(currentMonth, 1);
+        setCurrentMonth(newMonth);
+        // 현실의 이번 달로 돌아오면 '오늘', 아니면 '그 달의 1일'을 자동 선택!
+        setSelectedDate(isSameMonth(newMonth, new Date()) ? new Date() : startOfMonth(newMonth));
+    };
 
     const fetchMonthlyData = async () => {
         try {
@@ -84,8 +95,18 @@ export default function CalendarScreen() {
         }
     };
 
-    useEffect(() => { fetchMonthlyData(); }, [currentMonth]);
-    useEffect(() => { fetchDailyDiaries(); }, [selectedDate]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchMonthlyData();
+            fetchDailyDiaries();
+        }, [currentMonth, selectedDate])
+    );
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([fetchMonthlyData(), fetchDailyDiaries()]);
+        setRefreshing(false);
+    }, [currentMonth, selectedDate]);
 
     const handleDiaryClick = (diarySeq: number) => {
         router.push({ pathname: '/diary-screen/viewer', params: { id: diarySeq } });
@@ -98,11 +119,9 @@ export default function CalendarScreen() {
     const renderDays = () => {
         const days = ["일", "월", "화", "수", "목", "금", "토"];
         return (
-            <View className="flex-row border-b border-slate-100 dark:border-slate-800/60 pb-3 mb-2">
+            <View className="flex-row border-b border-slate-100 dark:border-slate-800/60" style={{ paddingBottom: scale(12), marginBottom: scale(8) }}>
                 {days.map((d, i) => (
-                    <Text key={i} className={`flex-1 text-center text-[11px] font-extrabold tracking-widest uppercase ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400 dark:text-slate-500"}`}>
-                        {d}
-                    </Text>
+                    <Text key={i} className={`flex-1 text-center font-extrabold tracking-widest uppercase ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400 dark:text-slate-500"}`} style={{ fontSize: scale(11) }} allowFontScaling={false}>{d}</Text>
                 ))}
             </View>
         );
@@ -112,7 +131,6 @@ export default function CalendarScreen() {
         const rows = [];
         let days = [];
         let day = startDate;
-
         while (day <= endDate) {
             for (let i = 0; i < 7; i++) {
                 const formattedDate = format(day, "d");
@@ -122,14 +140,12 @@ export default function CalendarScreen() {
                 const isNotCurrentMonth = !isSameMonth(day, monthStart);
                 const isToday = isSameDay(day, new Date());
                 const count = monthlyCounts[dateKey] || 0;
-
                 let dotColorClass = "";
                 if (!isNotCurrentMonth && count > 0) {
                     if (count === 1) dotColorClass = "bg-primary-300 dark:bg-primary-500";
                     else if (count === 2) dotColorClass = "bg-primary-500 dark:bg-primary-400";
                     else dotColorClass = "bg-primary-700 dark:bg-primary-300";
                 }
-
                 days.push(
                     <TouchableOpacity
                         key={day.toString()}
@@ -137,20 +153,13 @@ export default function CalendarScreen() {
                             setSelectedDate(cloneDay);
                             if (!isSameMonth(cloneDay, currentMonth)) setCurrentMonth(cloneDay);
                         }}
-                        activeOpacity={0.6}
-                        className="flex-1 items-center justify-start py-2 min-h-[56px]"
+                        activeOpacity={0.6} className="flex-1 items-center justify-start" style={{ paddingVertical: scale(4), minHeight: scale(44) }}
                     >
-                        <View className={`w-9 h-9 items-center justify-center rounded-full transition-colors duration-200 ${isSelected ? "bg-primary-600" : (isToday ? "bg-slate-100 dark:bg-slate-800" : "bg-transparent")}`}>
-                            <Text className={`text-[15px] font-bold ${isNotCurrentMonth ? "text-slate-300 dark:text-slate-600" :
-                                isSelected ? "text-white font-extrabold" :
-                                    isToday ? "text-slate-900 dark:text-white" :
-                                        "text-slate-700 dark:text-slate-300"
-                                }`}>
-                                {formattedDate}
-                            </Text>
+                        <View className={`items-center justify-center rounded-full transition-colors duration-200 ${isSelected ? "bg-primary-600" : (isToday ? "bg-slate-100 dark:bg-slate-800" : "bg-transparent")}`} style={{ width: scale(32), height: scale(32) }}>
+                            <Text className={`font-bold ${isNotCurrentMonth ? "text-slate-300 dark:text-slate-600" : isSelected ? "text-white font-extrabold" : isToday ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"}`} style={{ fontSize: scale(14) }} allowFontScaling={false}>{formattedDate}</Text>
                         </View>
-                        <View className="h-2 mt-1 justify-center">
-                            {dotColorClass ? <View className={`w-1 h-1 rounded-full ${dotColorClass}`} /> : null}
+                        <View className="justify-center" style={{ height: scale(8), marginTop: scale(2) }}>
+                            {dotColorClass ? <View className={`rounded-full ${dotColorClass}`} style={{ width: scale(4), height: scale(4) }} /> : null}
                         </View>
                     </TouchableOpacity>
                 );
@@ -164,79 +173,85 @@ export default function CalendarScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950 relative" edges={['top']}>
+            <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
             <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60">
-                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Calendar</Text>
+                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" allowFontScaling={false}>Calendar</Text>
             </View>
+            <View className="border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-950 z-10" style={{ paddingHorizontal: scale(4), paddingTop: scale(24), paddingBottom: scale(8) }}>
+                <View className="flex-row items-center justify-between" style={{ marginBottom: scale(24), paddingHorizontal: scale(4) }}>
 
-            <View className="px-6 pt-6 pb-2 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-950 z-10">
-                <View className="flex-row items-center justify-between mb-6 px-1">
-                    <TouchableOpacity onPress={prevMonth} className="w-10 h-10 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                        <Ionicons name="chevron-back" size={20} color="#64748b" />
-                    </TouchableOpacity>
-                    <Text className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{format(currentMonth, "yyyy년 M월")}</Text>
-                    <TouchableOpacity onPress={nextMonth} className="w-10 h-10 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                        <Ionicons name="chevron-forward" size={20} color="#64748b" />
-                    </TouchableOpacity>
+                    {/* ✨ 화살표 버튼 함수 교체! */}
+                    <TouchableOpacity onPress={handlePrevMonth} className="items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800" style={{ width: scale(40), height: scale(40) }}><Ionicons name="chevron-back" size={scale(20)} color="#64748b" /></TouchableOpacity>
+
+                    <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(20) }} allowFontScaling={false}>{format(currentMonth, "yyyy년 M월")}</Text>
+
+                    {/* ✨ 화살표 버튼 함수 교체! */}
+                    <TouchableOpacity onPress={handleNextMonth} className="items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800" style={{ width: scale(40), height: scale(40) }}><Ionicons name="chevron-forward" size={scale(20)} color="#64748b" /></TouchableOpacity>
+
                 </View>
                 {renderDays()}
                 <View>{renderCells()}</View>
             </View>
 
             <View className="flex-1 bg-white dark:bg-slate-950">
-                <View className="flex-row items-center justify-between px-6 py-5">
-                    <Text className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+                <View className="flex-row items-center justify-between" style={{ paddingHorizontal: scale(24), paddingVertical: scale(20) }}>
+                    <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16) }} allowFontScaling={false}>
                         {format(selectedDate, "M월 d일")}
-                        <Text className="text-sm font-medium text-slate-400 dark:text-slate-500">  ·  {loading ? "..." : dailyDiaries.length}개의 기록</Text>
+                        <Text className="font-medium text-slate-400 dark:text-slate-500" style={{ fontSize: scale(14) }} allowFontScaling={false}>  ·  {loading ? "..." : dailyDiaries.length}개의 기록</Text>
                     </Text>
                 </View>
 
-                {loading ? (
-                    <View className="flex-1 items-center justify-center pb-10">
+                {loading && !refreshing ? (
+                    <View className="flex-1 items-center justify-center" style={{ paddingBottom: scale(40) }}>
                         <ActivityIndicator color="#0F172A" />
                     </View>
                 ) : dailyDiaries.length > 0 ? (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: scale(120) }}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#94A3B8" />}
+                    >
                         {dailyDiaries.map((diary) => {
                             const d = diary as any;
                             const hasImage = !!d.imageUrl || (d.images && d.images.length > 0);
                             const previewUrl = d.imageUrl || (d.images?.[0]?.url || d.images?.[0]);
-
                             return (
-                                <TouchableOpacity key={diary.diarySeq} onPress={() => handleDiaryClick(diary.diarySeq)} activeOpacity={0.6} className="px-6 py-5 border-b border-slate-100 dark:border-slate-800/60 flex-row gap-4">
-                                    <View className="flex-1 justify-center gap-1.5">
-                                        <Text className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight" numberOfLines={1}>{diary.title || "제목 없음"}</Text>
-                                        <Text className="text-sm text-slate-500 dark:text-slate-400 leading-6" numberOfLines={2}>{diary.summary || d.content}</Text>
+                                <TouchableOpacity key={diary.diarySeq} onPress={() => handleDiaryClick(diary.diarySeq)} activeOpacity={0.6} className="border-b border-slate-100 dark:border-slate-800/60 flex-row" style={{ paddingHorizontal: scale(24), paddingVertical: scale(20), gap: scale(16) }}>
+                                    <View className="flex-1 justify-center" style={{ gap: scale(6) }}>
+                                        <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16) }} allowFontScaling={false} numberOfLines={1}>{diary.title || "제목 없음"}</Text>
+                                        <Text className="text-slate-500 dark:text-slate-400" style={{ fontSize: scale(14), lineHeight: scale(24) }} allowFontScaling={false} numberOfLines={2}>{diary.summary || d.content}</Text>
                                         {diary.tags && diary.tags.length > 0 && (
-                                            <View className="flex-row flex-wrap gap-1.5 mt-2">
+                                            <View className="flex-row flex-wrap" style={{ gap: scale(6), marginTop: scale(8) }}>
                                                 {diary.tags.map((tag: any, idx) => (
-                                                    <View key={idx} className="bg-primary-50 dark:bg-primary-900/40 px-2 py-1 rounded-md border border-primary-100/50 dark:border-primary-800/50">
-                                                        <Text className="text-[10px] text-primary-600 dark:text-primary-300 font-extrabold tracking-wide uppercase">#{typeof tag === 'string' ? tag : tag.name}</Text>
+                                                    <View key={idx} className="bg-primary-50 dark:bg-primary-900/40 rounded-md border border-primary-100/50 dark:border-primary-800/50" style={{ paddingHorizontal: scale(8), paddingVertical: scale(4) }}>
+                                                        <Text className="text-primary-600 dark:text-primary-300 font-extrabold tracking-wide uppercase" style={{ fontSize: scale(10) }} allowFontScaling={false}>#{typeof tag === 'string' ? tag : tag.name}</Text>
                                                     </View>
                                                 ))}
                                             </View>
                                         )}
                                     </View>
                                     {hasImage && previewUrl && (
-                                        <View className="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 self-center border border-slate-200 dark:border-slate-700">
-                                            <Image source={{ uri: previewUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                                        </View>
+                                        <View className="rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 self-center border border-slate-200 dark:border-slate-700" style={{ width: scale(80), height: scale(80) }}><Image source={{ uri: previewUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" /></View>
                                     )}
                                 </TouchableOpacity>
                             );
                         })}
                     </ScrollView>
                 ) : (
-                    <View className="flex-1 items-center justify-center pb-20 opacity-60">
-                        <Ionicons name="leaf-outline" size={32} color="#94A3B8" className="mb-3" />
-                        <Text className="text-sm font-bold text-slate-500 dark:text-slate-400">이 날의 기록이 없습니다.</Text>
-                    </View>
+                    <ScrollView
+                        contentContainerStyle={{ flex: 1 }}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#94A3B8" />}
+                    >
+                        <View className="flex-1 items-center justify-center opacity-60" style={{ paddingBottom: scale(80) }}>
+                            <Ionicons name="leaf-outline" size={scale(32)} color="#94A3B8" style={{ marginBottom: scale(12) }} />
+                            <Text className="font-bold text-slate-500 dark:text-slate-400" style={{ fontSize: scale(14) }} allowFontScaling={false}>이 날의 기록이 없습니다.</Text>
+                        </View>
+                    </ScrollView>
                 )}
             </View>
 
-            <View className="absolute bottom-6 right-6 z-50">
-                <TouchableOpacity onPress={handleWriteNew} activeOpacity={0.8} style={fabShadow} className="w-14 h-14 bg-primary-600 rounded-full items-center justify-center">
-                    <Ionicons name="add" size={30} color="white" />
-                </TouchableOpacity>
+            <View className="absolute z-50" style={{ bottom: scale(24), right: scale(24) }}>
+                <TouchableOpacity onPress={handleWriteNew} activeOpacity={0.8} style={[fabShadow, { width: scale(56), height: scale(56) }]} className="bg-primary-600 rounded-full items-center justify-center"><Ionicons name="add" size={scale(30)} color="white" /></TouchableOpacity>
             </View>
         </SafeAreaView>
     );

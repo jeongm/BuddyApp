@@ -2,12 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { chatApi } from "../../api/chatApi";
 import { IS_TEST_MODE } from "../../config";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
+
+// ✨ 마법의 스케일링 함수 추가
+const { width } = Dimensions.get('window');
+const scale = (size: number) => Math.round((width / 430) * size);
 
 interface Message {
     id: number;
@@ -39,7 +43,6 @@ export default function KeyboardChatScreen() {
     const [inputText, setInputText] = useState("");
     const [isTyping, setIsTyping] = useState(false);
 
-    // ✨ 핵심 버그 수정: 버튼 중복 터치 방지를 위한 잠금 장치(Lock)
     const [isEnding, setIsEnding] = useState(false);
     const isEndingRef = useRef(false);
 
@@ -100,15 +103,15 @@ export default function KeyboardChatScreen() {
     };
 
     const handleEndConversation = () => {
-        if (isEndingRef.current) return; // ✨ 절대 잠금: 이미 눌렸으면 무조건 튕겨냄
+        if (isEndingRef.current) return;
 
         if (messages.length < 2) {
             Alert.alert("알림", "기록하기엔 대화가 너무 짧아요!");
             return;
         }
 
-        isEndingRef.current = true; // ✨ 누르자마자 즉시 자물쇠 잠금
-        setIsEnding(true); // 버튼 UI 변경용 상태
+        isEndingRef.current = true;
+        setIsEnding(true);
 
         router.replace({
             pathname: '/calendar',
@@ -122,61 +125,63 @@ export default function KeyboardChatScreen() {
             <Stack.Screen options={{ headerShown: false }} />
             <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
-                <View className="flex-row items-center justify-between px-5 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/60 z-10">
-                    <View className="flex-row items-center gap-3">
-                        <TouchableOpacity onPress={() => router.back()} className="p-1 -ml-2" disabled={isEnding}>
-                            <Ionicons name="chevron-back" size={28} color="#64748b" />
+                {/* ✨ 헤더 영역 스케일링 */}
+                <View className="flex-row items-center justify-between bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/60 z-10" style={{ paddingHorizontal: scale(20), paddingVertical: scale(12) }}>
+                    <View className="flex-row items-center" style={{ gap: scale(12) }}>
+                        <TouchableOpacity onPress={() => router.back()} disabled={isEnding} style={{ padding: scale(4), marginLeft: scale(-8) }}>
+                            <Ionicons name="chevron-back" size={scale(28)} color="#64748b" />
                         </TouchableOpacity>
 
-                        <View className="flex-row items-center gap-3">
-                            <View className="w-11 h-11 rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 items-center justify-center">
-                                <Image source={currentProfileImg} style={{ width: 30, height: 30 }} contentFit="contain" />
+                        <View className="flex-row items-center" style={{ gap: scale(12) }}>
+                            <View className="rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 items-center justify-center" style={{ width: scale(44), height: scale(44) }}>
+                                <Image source={currentProfileImg} style={{ width: scale(30), height: scale(30) }} contentFit="contain" />
                             </View>
-                            {/* ✨ 텍스트 크기 원상복구 및 적절한 굵기(extrabold)로 타협 */}
-                            <Text className="text-[17px] font-extrabold text-slate-900 dark:text-white tracking-tight">
+                            <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(17) }} allowFontScaling={false}>
                                 {myBuddyName}
                             </Text>
                         </View>
                     </View>
 
-                    {/* ✨ 대화 종료 버튼: 말풍선 크기로 확대 및 둥글기 조절 */}
                     <TouchableOpacity
                         onPress={handleEndConversation}
                         disabled={isEnding}
                         activeOpacity={0.7}
-                        className={`px-5 py-3.5 rounded-[1.5rem] shadow-sm transition-colors ${isEnding ? 'bg-slate-300 dark:bg-slate-700' : 'bg-slate-900 dark:bg-white'}`}
+                        className={`rounded-[1.5rem] shadow-sm transition-colors ${isEnding ? 'bg-slate-300 dark:bg-slate-700' : 'bg-primary-600'}`}
+                        style={{ paddingHorizontal: scale(20), paddingVertical: scale(14) }}
                     >
-                        <Text className={`text-[14px] font-bold tracking-wide ${isEnding ? 'text-slate-500 dark:text-slate-400' : 'text-white dark:text-slate-900'}`}>
+                        <Text className={`font-bold tracking-wide ${isEnding ? 'text-slate-500 dark:text-slate-400' : 'text-white'}`} style={{ fontSize: scale(14) }} allowFontScaling={false}>
                             {isEnding ? "종료 중..." : "대화 종료"}
                         </Text>
                     </TouchableOpacity>
                 </View>
 
+                {/* ✨ 채팅 목록 영역 스케일링 */}
                 <ScrollView
                     ref={scrollViewRef}
-                    className="flex-1 px-5 pt-6"
-                    contentContainerStyle={{ paddingBottom: 30 }}
+                    className="flex-1"
+                    contentContainerStyle={{ paddingBottom: scale(30), paddingTop: scale(24), paddingHorizontal: scale(20) }}
                     onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                 >
                     {messages.map((msg) => {
                         const isMe = msg.sender === "user";
                         return (
-                            <View key={msg.id} className={`flex-row ${isMe ? "justify-end" : "justify-start"} mb-6`}>
+                            <View key={msg.id} className={`flex-row ${isMe ? "justify-end" : "justify-start"}`} style={{ marginBottom: scale(24) }}>
                                 {!isMe && (
-                                    <View className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 mr-3 mt-1 items-center justify-center border border-slate-100 dark:border-slate-800">
-                                        <Image source={currentProfileImg} style={{ width: 20, height: 20 }} contentFit="contain" />
+                                    <View className="rounded-full bg-slate-50 dark:bg-slate-900 items-center justify-center border border-slate-100 dark:border-slate-800" style={{ width: scale(32), height: scale(32), marginRight: scale(12), marginTop: scale(4) }}>
+                                        <Image source={currentProfileImg} style={{ width: scale(20), height: scale(20) }} contentFit="contain" />
                                     </View>
                                 )}
 
-                                <View className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
-                                    <View className={`flex-row items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                                        {isMe && <Text className="text-[10px] text-slate-400 dark:text-slate-600 mb-1">{formatTime(msg.timestamp)}</Text>}
+                                <View className={`${isMe ? "items-end" : "items-start"}`} style={{ maxWidth: '75%' }}>
+                                    <View className={`flex-row items-end ${isMe ? "justify-end" : "justify-start"}`} style={{ gap: scale(8) }}>
+                                        {isMe && <Text className="text-slate-400 dark:text-slate-600" style={{ fontSize: scale(10), marginBottom: scale(4) }} allowFontScaling={false}>{formatTime(msg.timestamp)}</Text>}
 
-                                        <View className={`px-5 py-3.5 ${isMe ? "bg-primary-600 rounded-[1.5rem] rounded-tr-md" : "bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-[1.5rem] rounded-tl-md"}`}>
-                                            <Text className={`text-[15px] leading-6 font-medium ${isMe ? "text-white" : "text-slate-800 dark:text-slate-200"}`}>{msg.text}</Text>
+                                        <View className={`${isMe ? "bg-primary-600 rounded-[1.5rem] rounded-tr-md" : "bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-[1.5rem] rounded-tl-md"}`} style={{ paddingHorizontal: scale(20), paddingVertical: scale(14) }}>
+                                            {/* ✨ 말풍선 본문은 기기 폰트 설정을 존중하도록 allowFontScaling을 넣지 않았습니다! */}
+                                            <Text className={`font-medium ${isMe ? "text-white" : "text-slate-800 dark:text-slate-200"}`} style={{ fontSize: scale(15), lineHeight: scale(24) }}>{msg.text}</Text>
                                         </View>
 
-                                        {!isMe && <Text className="text-[10px] text-slate-400 dark:text-slate-600 mb-1">{formatTime(msg.timestamp)}</Text>}
+                                        {!isMe && <Text className="text-slate-400 dark:text-slate-600" style={{ fontSize: scale(10), marginBottom: scale(4) }} allowFontScaling={false}>{formatTime(msg.timestamp)}</Text>}
                                     </View>
                                 </View>
                             </View>
@@ -184,33 +189,37 @@ export default function KeyboardChatScreen() {
                     })}
 
                     {isTyping && (
-                        <View className="flex-row justify-start items-center mb-6 opacity-60">
-                            <View className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 mr-3 items-center justify-center border border-slate-100 dark:border-slate-800">
-                                <Image source={currentProfileImg} style={{ width: 20, height: 20 }} contentFit="contain" />
+                        <View className="flex-row justify-start items-center opacity-60" style={{ marginBottom: scale(24) }}>
+                            <View className="rounded-full bg-slate-50 dark:bg-slate-900 items-center justify-center border border-slate-100 dark:border-slate-800" style={{ width: scale(32), height: scale(32), marginRight: scale(12) }}>
+                                <Image source={currentProfileImg} style={{ width: scale(20), height: scale(20) }} contentFit="contain" />
                             </View>
-                            <View className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 px-5 py-3 rounded-[1.5rem] rounded-tl-md">
-                                <Text className="text-[15px] text-slate-400 dark:text-slate-500 font-medium">타이핑 중...</Text>
+                            <View className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-[1.5rem] rounded-tl-md" style={{ paddingHorizontal: scale(20), paddingVertical: scale(12) }}>
+                                <Text className="text-slate-400 dark:text-slate-500 font-medium" style={{ fontSize: scale(15) }} allowFontScaling={false}>타이핑 중...</Text>
                             </View>
                         </View>
                     )}
                 </ScrollView>
 
-                <View className="bg-white dark:bg-slate-950 pt-2 pb-6 px-5 border-t border-slate-100 dark:border-slate-900/50">
-                    <View className="flex-row items-center gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-full pl-5 pr-2 py-1.5 min-h-[50px]">
+                {/* ✨ 하단 입력창 영역 스케일링 */}
+                <View className="bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-900/50" style={{ paddingTop: scale(8), paddingBottom: scale(24), paddingHorizontal: scale(20) }}>
+                    <View className="flex-row items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-full" style={{ gap: scale(8), paddingLeft: scale(20), paddingRight: scale(6), height: scale(46) }}>
                         <TextInput
+                            allowFontScaling={false}
                             value={inputText}
                             onChangeText={setInputText}
                             placeholder="버디에게 말 걸기..."
                             placeholderTextColor="#94a3b8"
-                            className="flex-1 py-3 text-[15px] font-medium text-slate-800 dark:text-white leading-5"
+                            className="flex-1 font-medium text-slate-800 dark:text-white h-full"
+                            style={{ fontSize: scale(14), paddingVertical: 0, marginVertical: 0, textAlignVertical: 'center' }}
                             onSubmitEditing={handleSendMessage}
                         />
                         <TouchableOpacity
                             onPress={handleSendMessage}
                             disabled={!inputText.trim() || isTyping || isEnding}
-                            className={`w-10 h-10 rounded-full items-center justify-center transition-colors ${!inputText.trim() || isTyping || isEnding ? "bg-slate-200 dark:bg-slate-800" : "bg-primary-600"}`}
+                            className={`rounded-full items-center justify-center transition-colors ${!inputText.trim() || isTyping || isEnding ? "bg-slate-200 dark:bg-slate-800" : "bg-primary-600"}`}
+                            style={{ width: scale(36), height: scale(36) }}
                         >
-                            <Ionicons name="arrow-up" size={18} color={!inputText.trim() || isTyping || isEnding ? "#CBD5E1" : "white"} />
+                            <Ionicons name="arrow-up" size={scale(18)} color={!inputText.trim() || isTyping || isEnding ? "#CBD5E1" : "white"} />
                         </TouchableOpacity>
                     </View>
                 </View>
