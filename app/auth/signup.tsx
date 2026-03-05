@@ -2,23 +2,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '../../api/authApi';
 import { memberApi } from '../../api/memberApi';
-import { IS_TEST_MODE } from '../../config';
+// ✨ AppText 임포트 확인 (기존 코드에 이미 잘 되어 있었습니다!)
+import { useAuthStore } from '@/store/useAuthStore';
+import { AppText as Text } from '../../components/AppText';
 
-// ✨ 마법의 스케일링 함수 추가
 const { width } = Dimensions.get('window');
 const scale = (size: number) => Math.round((width / 430) * size);
 
 const CHARACTERS = [
-    { seq: 1, name: "햄스터", img: require('../../assets/images/characters/Hamster.png'), desc: "주인님 기분이 제일 중요해! 🐹\n논리보다는 감정에 깊이 공감해주는 사랑스러운 친구예요.", keywords: ["#공감요정", "#무한긍정", "#애교만점"] },
-    { seq: 2, name: "여우", img: require('../../assets/images/characters/Fox.png'), desc: "징징거릴 시간에 해결책을 찾아. 😏\n감정보다 이성을 중시하는 시니컬한 분석가예요.", keywords: ["#팩트폭력", "#냉철분석", "#효율중시"] },
-    { seq: 3, name: "판다", img: require('../../assets/images/characters/Panda.png'), desc: "허허, 실수는 누구나 하는 법. 🍵\n따뜻한 위로와 현실적인 조언을 함께 주는 든든한 멘토예요.", keywords: ["#지혜로움", "#멘토", "#따뜻한위로"] },
+    { seq: 1, name: "햄찌", img: require('../../assets/images/characters/Hamster.png'), desc: "주인님 기분이 제일 중요해! 🐹\n논리보다는 감정에 깊이 공감해주는 사랑스러운 친구예요.", keywords: ["#공감요정", "#무한긍정", "#애교만점"] },
+    { seq: 2, name: "폭스", img: require('../../assets/images/characters/Fox.png'), desc: "징징거릴 시간에 해결책을 찾아. 😏\n감정보다 이성을 중시하는 시니컬한 분석가예요.", keywords: ["#팩트폭력", "#냉철분석", "#효율중시"] },
+    { seq: 3, name: "곰곰이", img: require('../../assets/images/characters/Bear.png'), desc: "허허, 실수는 누구나 하는 법. 🍵\n따뜻한 위로와 현실적인 조언을 함께 주는 든든한 멘토예요.", keywords: ["#지혜로움", "#멘토", "#따뜻한위로"] },
 ];
 
-// ✨ 공통 InputField 스케일링 적용
 const InputField = ({ label, icon, isFocused, isError, bottomText, rightElement, disabled, activeColor, ...props }: any) => (
     <View style={{ marginBottom: scale(20) }}>
         <Text className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1" style={{ fontSize: scale(12), marginBottom: scale(8) }} allowFontScaling={false}>{label}</Text>
@@ -27,8 +27,13 @@ const InputField = ({ label, icon, isFocused, isError, bottomText, rightElement,
             <TextInput
                 placeholderTextColor="#94A3B8"
                 editable={!disabled}
-                className="flex-1 ml-3 font-bold text-slate-900 dark:text-white"
-                style={{ fontSize: scale(15), paddingVertical: 0 }}
+                className="flex-1 font-bold text-slate-900 dark:text-white"
+                style={{
+                    fontSize: scale(15),
+                    paddingVertical: 0,
+                    fontFamily: 'Pretendard-Regular',
+                    marginLeft: icon ? scale(11) : 0 // 아이콘이 있을 때만 여백을 주도록 동적으로 처리하면 더 완벽합니다!
+                }}
                 allowFontScaling={false}
                 {...props}
             />
@@ -46,6 +51,8 @@ export default function SignupScreen() {
     const router = useRouter();
     const colorScheme = useColorScheme();
     const activeColor = colorScheme === 'dark' ? '#FFFFFF' : '#0F172A';
+
+    const { setTokens, setUser } = useAuthStore();
 
     const [step, setStep] = useState(1);
     const [email, setEmail] = useState("");
@@ -109,9 +116,20 @@ export default function SignupScreen() {
 
     const nextStep = () => {
         if (step === 1) {
-            if (password.length < 8 || password.length > 20) return Alert.alert("알림", "비밀번호는 8~20자로 설정해주세요.");
-            if (password !== passwordConfirm) return Alert.alert("알림", "비밀번호가 일치하지 않습니다.");
-            setStep(2);
+            // 1. 이메일 인증 여부 먼저 확인!
+            if (!isEmailVerified) {
+                return Alert.alert("알림", "이메일 인증을 완료해주세요.");
+            }
+
+            // 2. 비밀번호 유효성 검사
+            if (password.length < 8 || password.length > 20) {
+                return Alert.alert("알림", "비밀번호는 8~20자로 설정해주세요.");
+            }
+            if (password !== passwordConfirm) {
+                return Alert.alert("알림", "비밀번호가 일치하지 않습니다.");
+            }
+
+            setStep(2); // 이제야 안심하고 2단계로!
         } else if (step === 2) {
             if (!userNickname.trim()) return Alert.alert("알림", "닉네임을 입력해주세요.");
             setStep(3);
@@ -123,22 +141,45 @@ export default function SignupScreen() {
         else setStep(step - 1);
     };
 
+    // ✨ 수정됨: 타입스크립트 에러를 완벽하게 방어하는 무적 콤보!
     const handleFinalSubmit = async () => {
         if (!characterNickname.trim()) return Alert.alert("알림", "캐릭터 이름을 지어주세요!");
         setIsSubmitting(true);
         try {
-            if (IS_TEST_MODE) {
-                await new Promise(r => setTimeout(r, 1000));
-                Alert.alert("가입 완료 🎉", "버디와 함께할 준비가 끝났어요! 로그인해주세요.", [{ text: "확인", onPress: () => router.replace("/auth/login") }]);
-                return;
-            }
+            // 1. 타입 에러 해결: characterNickname을 다시 껴넣어서 타입스크립트를 달래줍니다!
+            // (어차피 백엔드가 가입 땐 무시하고 4번 단계에서 정확히 저장해 줍니다)
             await memberApi.signup({
-                email, password, nickname: userNickname,
-                characterSeq: CHARACTERS[characterIndex].seq, characterNickname
+                email,
+                password,
+                nickname: userNickname,
+                characterSeq: CHARACTERS[characterIndex].seq,
+                characterNickname: characterNickname // ✨ 다시 추가! (빨간줄 해결)
             });
-            Alert.alert("가입 완료 🎉", "회원가입이 완료되었습니다. 로그인해주세요.", [{ text: "확인", onPress: () => router.replace("/auth/login") }]);
+
+            // 2. 가입 직후, 우리가 이미 확실하게 성공했던 '일반 로그인 API'를 찔러서 토큰을 가져옵니다!
+            const loginResponse = await authService.login({ email, password });
+            const resultData = loginResponse.result || loginResponse;
+
+            // 3. 로그인 성공 시 응답으로 온 토큰 저장! (as string, as any 로 타입 에러 강제 차단)
+            if (resultData.accessToken) {
+                setTokens(resultData.accessToken as string, resultData.refreshToken as string);
+                if (resultData.member) setUser(resultData.member as any);
+
+                // 4. 토큰이 세팅되었으니, '수정 API'를 찔러서 캐릭터 이름 덮어씌우기!
+                await memberApi.updateCharacterName({ characterName: characterNickname });
+
+                // 스토어 정보에도 반영
+                setUser({ ...resultData.member, characterNickname: characterNickname } as any);
+
+                // 로그인 안 거치고 바로 홈으로!
+                Alert.alert("환영합니다! 🎉", "나만의 버디 설정이 완료되었습니다.", [{ text: "시작하기", onPress: () => router.replace("/(tabs)/home") }]);
+            } else {
+                // 혹시 모를 에러 대비 안전빵 로직
+                Alert.alert("가입 완료 🎉", "회원가입이 완료되었습니다. 로그인해주세요.", [{ text: "확인", onPress: () => router.replace("/auth/login") }]);
+            }
+
         } catch (error: any) {
-            Alert.alert("오류", error.response?.data?.message || "오류가 발생했습니다.");
+            Alert.alert("오류", error.response?.data?.message || "가입 처리 중 오류가 발생했습니다.");
         } finally {
             setIsSubmitting(false);
         }
@@ -175,8 +216,12 @@ export default function SignupScreen() {
             <InputField activeColor={activeColor} label="Password (8~20자)" icon="lock-closed" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} isFocused={focus.password} onFocus={() => handleFocus('password', true)} onBlur={() => handleFocus('password', false)} maxLength={20} placeholder="비밀번호 설정" rightElement={<TouchableOpacity onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? "eye-off" : "eye"} size={scale(20)} color="#94A3B8" /></TouchableOpacity>} />
             <InputField activeColor={activeColor} label="Confirm Password" icon="checkmark-circle" value={passwordConfirm} onChangeText={setPasswordConfirm} secureTextEntry={!showPassword} isFocused={focus.confirm} isError={passwordConfirm.length > 0 && password !== passwordConfirm} bottomText={passwordConfirm && password !== passwordConfirm ? "비밀번호가 일치하지 않습니다." : null} onFocus={() => handleFocus('confirm', true)} onBlur={() => handleFocus('confirm', false)} maxLength={20} placeholder="비밀번호 재입력" />
 
-            <TouchableOpacity onPress={nextStep} activeOpacity={0.8} className="w-full rounded-2xl bg-slate-900 dark:bg-white items-center justify-center shadow-sm" style={{ height: scale(56), marginTop: scale(16) }}>
-                <Text className="text-white dark:text-slate-900 font-extrabold tracking-widest uppercase" style={{ fontSize: scale(15) }} allowFontScaling={false}>Next</Text>
+            <TouchableOpacity onPress={nextStep} activeOpacity={0.8} className={`w-full rounded-2xl items-center justify-center shadow-sm ${!isEmailVerified ? 'bg-slate-300' : 'bg-slate-900 dark:bg-white'}`}
+                style={{ height: scale(56), marginTop: scale(16) }}
+            >
+                <Text className={`font-extrabold tracking-widest uppercase ${!isEmailVerified ? 'text-slate-500' : 'text-white dark:text-slate-900'}`} style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                    Next
+                </Text>
             </TouchableOpacity>
         </AnimatedView>
     );
@@ -187,7 +232,7 @@ export default function SignupScreen() {
                 <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight mb-2" style={{ fontSize: scale(30) }} allowFontScaling={false}>닉네임 설정</Text>
                 <Text className="font-medium text-slate-500 dark:text-slate-400" style={{ fontSize: scale(14) }} allowFontScaling={false}>버디가 부를 당신의 이름을 알려주세요.</Text>
             </View>
-            <InputField activeColor={activeColor} label="Your Nickname" icon="person" value={userNickname} onChangeText={setUserNickname} isFocused={focus.nickname} onFocus={() => handleFocus('nickname', true)} onBlur={() => handleFocus('nickname', false)} placeholder="사용할 닉네임 입력" />
+            <InputField activeColor={activeColor} label="Your Nickname" value={userNickname} onChangeText={setUserNickname} isFocused={focus.nickname} onFocus={() => handleFocus('nickname', true)} onBlur={() => handleFocus('nickname', false)} placeholder="사용할 닉네임 입력" />
 
             <TouchableOpacity onPress={nextStep} activeOpacity={0.8} className="w-full rounded-2xl bg-slate-900 dark:bg-white items-center justify-center shadow-sm" style={{ height: scale(56), marginTop: scale(16) }}>
                 <Text className="text-white dark:text-slate-900 font-extrabold tracking-widest uppercase" style={{ fontSize: scale(15) }} allowFontScaling={false}>Next</Text>
@@ -197,42 +242,89 @@ export default function SignupScreen() {
 
     const renderStep3 = () => (
         <AnimatedView className="items-center">
+            {/* 상단 타이틀 영역 */}
             <View className="w-full" style={{ marginBottom: scale(32) }}>
                 <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight mb-2" style={{ fontSize: scale(30) }} allowFontScaling={false}>캐릭터 선택</Text>
                 <Text className="font-medium text-slate-500 dark:text-slate-400" style={{ fontSize: scale(14) }} allowFontScaling={false}>나만의 AI 친구를 골라보세요.</Text>
             </View>
 
-            <View className="flex-row items-center justify-between w-full" style={{ marginBottom: scale(32) }}>
-                <TouchableOpacity onPress={() => setCharacterIndex((prev) => (prev - 1 + CHARACTERS.length) % CHARACTERS.length)} className="rounded-full bg-slate-50 dark:bg-slate-800 items-center justify-center active:bg-slate-100" style={{ width: scale(48), height: scale(48) }}>
-                    <Ionicons name="chevron-back" size={scale(24)} color="#64748b" />
+            {/* 1. 캐릭터 이미지 영역 (검정 테두리 삭제 & 소프트한 배경) */}
+            <View className="flex-row items-center justify-between w-full" style={{ marginBottom: scale(24) }}>
+                <TouchableOpacity
+                    onPress={() => setCharacterIndex((prev) => (prev - 1 + CHARACTERS.length) % CHARACTERS.length)}
+                    className="bg-slate-100 dark:bg-slate-800 items-center justify-center rounded-full"
+                    style={{ width: scale(44), height: scale(44) }}
+                >
+                    <Ionicons name="chevron-back" size={scale(20)} color="#64748b" />
                 </TouchableOpacity>
 
-                <View className="rounded-full bg-slate-100 dark:bg-slate-800 items-center justify-center border-[4px] border-slate-900 dark:border-white shadow-sm" style={{ width: scale(192), height: scale(192) }}>
-                    <Image source={CHARACTERS[characterIndex].img} style={{ width: scale(140), height: scale(140) }} contentFit="contain" />
+                {/* ✨ 테두리를 없애고 아주 은은한 그림자와 배경만 남겼습니다 */}
+                <View
+                    className="bg-slate-50 dark:bg-slate-900 items-center justify-center rounded-full"
+                    style={{
+                        width: scale(180),
+                        height: scale(180),
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 10,
+                    }}
+                >
+                    <Image source={CHARACTERS[characterIndex].img} style={{ width: scale(130), height: scale(130) }} contentFit="contain" />
                 </View>
 
-                <TouchableOpacity onPress={() => setCharacterIndex((prev) => (prev + 1) % CHARACTERS.length)} className="rounded-full bg-slate-50 dark:bg-slate-800 items-center justify-center active:bg-slate-100" style={{ width: scale(48), height: scale(48) }}>
-                    <Ionicons name="chevron-forward" size={scale(24)} color="#64748b" />
+                <TouchableOpacity
+                    onPress={() => setCharacterIndex((prev) => (prev + 1) % CHARACTERS.length)}
+                    className="bg-slate-100 dark:bg-slate-800 items-center justify-center rounded-full"
+                    style={{ width: scale(44), height: scale(44) }}
+                >
+                    <Ionicons name="chevron-forward" size={scale(20)} color="#64748b" />
                 </TouchableOpacity>
             </View>
 
-            <View className="items-center w-full px-2" style={{ marginBottom: scale(40) }}>
-                <Text className="font-extrabold text-slate-900 dark:text-white mb-4" style={{ fontSize: scale(24) }} allowFontScaling={false}>{CHARACTERS[characterIndex].name}</Text>
-                <View className="flex-row flex-wrap justify-center mb-4" style={{ gap: scale(8) }}>
+            {/* 2. 캐릭터 상세 정보 (카드형 레이아웃으로 그룹화) */}
+            <View
+                className="w-full bg-slate-50 dark:bg-slate-900 rounded-[2rem] items-center"
+                style={{ padding: scale(24), marginBottom: scale(24) }}
+            >
+                <Text className="font-black text-slate-900 dark:text-white mb-3" style={{ fontSize: scale(22) }} allowFontScaling={false}>
+                    {CHARACTERS[characterIndex].name}
+                </Text>
+
+                <View className="flex-row flex-wrap justify-center mb-4" style={{ gap: scale(6) }}>
                     {CHARACTERS[characterIndex].keywords.map((kw, i) => (
-                        <View key={i} className="rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ paddingHorizontal: scale(12), paddingVertical: scale(6) }}>
-                            <Text className="font-extrabold text-slate-600 dark:text-slate-300" style={{ fontSize: scale(11) }} allowFontScaling={false}>{kw}</Text>
+                        <View key={i} className="rounded-full bg-white dark:bg-slate-800 px-3 py-1 border border-slate-100 dark:border-slate-700">
+                            <Text className="font-bold text-slate-400 dark:text-slate-500" style={{ fontSize: scale(11) }} allowFontScaling={false}>{kw}</Text>
                         </View>
                     ))}
                 </View>
-                <Text className="text-slate-500 dark:text-slate-400 text-center font-medium" style={{ fontSize: scale(15), lineHeight: scale(26) }} allowFontScaling={false}>{CHARACTERS[characterIndex].desc}</Text>
+
+                <Text className="text-slate-500 dark:text-slate-400 text-center font-medium" style={{ fontSize: scale(14), lineHeight: scale(22) }} allowFontScaling={false}>
+                    {CHARACTERS[characterIndex].desc}
+                </Text>
             </View>
 
+            {/* 3. 이름 입력창 (아이콘 없는 깔끔한 버전) */}
             <View className="w-full">
-                <InputField activeColor={activeColor} label="Buddy's Name" icon="star" value={characterNickname} onChangeText={setCharacterNickname} isFocused={focus.charNickname} onFocus={() => handleFocus('charNickname', true)} onBlur={() => handleFocus('charNickname', false)} placeholder="버디의 애칭을 지어주세요" />
+                <InputField
+                    activeColor={activeColor}
+                    label="Buddy's Name"
+                    value={characterNickname}
+                    onChangeText={setCharacterNickname}
+                    isFocused={focus.charNickname}
+                    onFocus={() => handleFocus('charNickname', true)}
+                    onBlur={() => handleFocus('charNickname', false)}
+                    placeholder="버디의 애칭을 지어주세요"
+                />
             </View>
 
-            <TouchableOpacity onPress={handleFinalSubmit} disabled={isSubmitting} activeOpacity={0.8} className={`w-full rounded-2xl items-center justify-center shadow-sm mt-4 ${isSubmitting ? 'bg-slate-300 dark:bg-slate-700' : 'bg-slate-900 dark:bg-white'}`} style={{ height: scale(56) }}>
+            <TouchableOpacity
+                onPress={handleFinalSubmit}
+                disabled={isSubmitting}
+                activeOpacity={0.8}
+                className={`w-full rounded-2xl items-center justify-center shadow-sm mt-4 ${isSubmitting ? 'bg-slate-300 dark:bg-slate-700' : 'bg-slate-900 dark:bg-white'}`}
+                style={{ height: scale(56) }}
+            >
                 <Text className={`font-extrabold tracking-widest ${isSubmitting ? "text-slate-500 dark:text-slate-400" : "text-white dark:text-slate-900"}`} style={{ fontSize: scale(15) }} allowFontScaling={false}>
                     {isSubmitting ? "처리 중..." : "가입 완료"}
                 </Text>

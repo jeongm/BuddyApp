@@ -1,12 +1,6 @@
-// src/types/chat.ts
-
-// 1. 채팅 메시지 하나 (공통)
-// API 명세의 result 배열 안에 들어가는 객체 구조와 일치시킴
+// 1. 채팅 메시지 하나
 export interface ChatMessage {
-    sessionId: number;
     messageSeq: number;
-    // UI에서 내 말/AI 말을 구분하기 위해 구체적인 값이 좋지만, 
-    // 백엔드 값(대소문자)이 확실하지 않을 땐 string도 허용해두는 게 안전합니다.
     role: "USER" | "ASSISTANT" | string;
     content: string;
     createdAt: string;
@@ -14,15 +8,19 @@ export interface ChatMessage {
 
 // 2. 메시지 보낼 때 (요청)
 export interface SendMessageRequest {
-    sessionId: number;
+    sessionSeq: number; // ✨ 통일 완료
     content: string;
 }
 
-// 3. 메시지 보내기 응답
+// 3. 메시지 보내기 응답 (중요: 명세서의 result 구조와 일치)
 export interface SendMessageResponse {
-    sessionId: number;
-    messageSeq: number;
-    role: string;
-    content: string;
-    createdAt: string;
+    sessionSeq: number; // ✨ sessionId 삭제 및 타입 고정
+    message: ChatMessage; // ✨ 메시지 객체가 별도로 들어옴
+}
+
+// 4. 대화 내역 조회 응답 (추가: 명세서의 result 구조)
+export interface ChatHistoryResponse {
+    sessionSeq: number;
+    characterSeq: number;
+    messages: ChatMessage[];
 }

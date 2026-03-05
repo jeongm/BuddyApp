@@ -80,12 +80,12 @@ export const diaryApi = {
         return response.data;
     },
 
-    createDiaryFromChat: async (sessionId: number) => {
+    createDiaryFromChat: async (sessionSeq: number) => {
         const response = await authApi.post<AuthResponse<{
             title: string;
             content: string;
             tags: { tagSeq: number; name: string }[];
-        }>>('/api/v1/diaries/from-chat', { sessionId });
+        }>>('/api/v1/diaries/from-chat', { sessionSeq });
         return response.data;
     },
 

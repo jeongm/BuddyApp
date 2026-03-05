@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi } from '../../api/axios';
-import { IS_TEST_MODE } from '../../config';
 import { useAuthStore } from '../../store/useAuthStore';
+// ✨ 기본 Text 대신 우리가 만든 AppText 임포트!
+import { AppText as Text } from '../../components/AppText';
 
-// ✨ 마법의 스케일링 함수 추가 (아이폰 16 Pro Max 430px 기준)
 const { width } = Dimensions.get('window');
 const scale = (size: number) => Math.round((width / 430) * size);
 
@@ -35,26 +35,14 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      if (IS_TEST_MODE) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const fakeResponse = {
-          accessToken: "fake-jwt-token",
-          refreshToken: "fake-refresh-token",
-          member: { memberSeq: 1, email: email, nickname: "테스트유저", characterSeq: 1, characterNickname: "Hamster", avatarUrl: "" }
-        };
-        setTokens(fakeResponse.accessToken, fakeResponse.refreshToken);
-        setUser(fakeResponse.member);
-        // ✨ 여기서 replace를 써주신 덕분에 뒤로가기 과거 기록이 깔끔하게 삭제됩니다!
-        router.replace("/(tabs)/home");
-      } else {
-        const response = await authApi.post('/api/v1/auth/login', { email, password });
-        const result = response.data.result || response.data;
+      // 🚨 테스트 모드 삭제 및 실제 API 호출만 남김
+      const response = await authApi.post('/api/v1/auth/login', { email, password });
+      const result = response.data.result || response.data;
 
-        setTokens(result.accessToken, result.refreshToken);
-        if (result.member) setUser(result.member);
-        // ✨ 실무에서도 완벽한 replace 처리!
-        router.replace("/(tabs)/home");
-      }
+      setTokens(result.accessToken, result.refreshToken);
+      if (result.member) setUser(result.member);
+
+      router.replace("/(tabs)/home");
     } catch (error: any) {
       const msg = error.response?.data?.message || "로그인에 실패했습니다.";
       Alert.alert("오류", msg);
@@ -67,7 +55,6 @@ export default function LoginScreen() {
     <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
 
-        {/* 뒤로가기 버튼 영역 (버튼 크기와 아이콘 크기도 스케일링) */}
         <View className="px-6 pt-2 pb-2">
           <TouchableOpacity onPress={() => router.back()} style={{ width: scale(40), height: scale(40) }} className="justify-center">
             <Ionicons name="arrow-back" size={scale(26)} color="#94A3B8" />
@@ -76,7 +63,6 @@ export default function LoginScreen() {
 
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: scale(32), paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* 상단 타이틀 영역 */}
           <View style={{ marginBottom: scale(48) }}>
             <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight mb-2" style={{ fontSize: scale(36) }} allowFontScaling={false}>
               Welcome
@@ -86,7 +72,6 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* 1. 이메일 입력 */}
           <View style={{ marginBottom: scale(20) }}>
             <Text className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Email</Text>
 
@@ -102,13 +87,13 @@ export default function LoginScreen() {
                 placeholder="이메일을 입력하세요"
                 placeholderTextColor="#94A3B8"
                 className="flex-1 ml-3 font-bold text-slate-900 dark:text-white"
-                style={{ fontSize: scale(15), paddingVertical: 0 }}
+                // ✨ TextInput에도 명시적으로 프리텐다드를 주입합니다!
+                style={{ fontSize: scale(15), paddingVertical: 0, fontFamily: 'Pretendard-Regular' }}
                 allowFontScaling={false}
               />
             </View>
           </View>
 
-          {/* 2. 비밀번호 입력 */}
           <View style={{ marginBottom: scale(32) }}>
             <Text className="font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Password</Text>
 
@@ -123,7 +108,8 @@ export default function LoginScreen() {
                 placeholder="비밀번호를 입력하세요"
                 placeholderTextColor="#94A3B8"
                 className="flex-1 ml-3 font-bold text-slate-900 dark:text-white"
-                style={{ fontSize: scale(15), paddingVertical: 0 }}
+                // ✨ 여기도 프리텐다드 주입!
+                style={{ fontSize: scale(15), paddingVertical: 0, fontFamily: 'Pretendard-Regular' }}
                 allowFontScaling={false}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-1">
@@ -132,7 +118,6 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* 로그인 버튼 */}
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
@@ -155,7 +140,6 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

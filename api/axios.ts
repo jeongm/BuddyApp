@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useAuthStore } from '../store/useAuthStore';
 
 const BASE_URL = 'https://buddy-api.kro.kr';
-
+// const BASE_URL = 'https://noncurtailing-unwary-clint.ngrok-free.dev';
 const commonConfig = {
   baseURL: BASE_URL,
   timeout: 60000,
