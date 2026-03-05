@@ -2,12 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Image } from "expo-image";
-import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+// ✨ RNText 추가!
+import { ActivityIndicator, Dimensions, FlatList, RefreshControl, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { diaryApi } from "../../api/diaryApi";
+import { AppText as Text } from '../../components/AppText';
 import { useAuthStore } from "../../store/useAuthStore";
+// ✨ 스토어 추가!
+import { useSettingStore } from "../../store/useSettingStore";
 import type { DiarySummary } from "../../types/diary";
 
 const { width } = Dimensions.get('window');
@@ -18,6 +22,10 @@ type SearchFilterType = "all" | "title" | "content" | "tag";
 export default function DiaryFeedScreen() {
     const router = useRouter();
     const { user } = useAuthStore();
+
+    // ✨ 폰트 상태 불러오기
+    const { fontFamily } = useSettingStore();
+    const customFontFamily = fontFamily === 'System' ? undefined : fontFamily;
 
     const [allDiaries, setAllDiaries] = useState<DiarySummary[]>([]);
     const [filteredDiaries, setFilteredDiaries] = useState<DiarySummary[]>([]);
@@ -149,7 +157,7 @@ export default function DiaryFeedScreen() {
                     </View>
                 )}
 
-                <Text className="font-medium text-slate-600 dark:text-slate-300" style={{ fontSize: scale(15), lineHeight: scale(28) }} allowFontScaling={false} numberOfLines={3}>
+                <Text className="font-normal text-slate-600 dark:text-slate-300" style={{ fontSize: scale(15), lineHeight: scale(28) }} allowFontScaling={false} numberOfLines={3}>
                     {d.summary || d.content}
                 </Text>
 
@@ -178,16 +186,26 @@ export default function DiaryFeedScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
-            <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-
             <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-20">
-                <Text className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" allowFontScaling={false}>Diaries</Text>
+                {/* 🚨 헤더 교체 완료 (크기 유지, 폰트 연동) 🚨 */}
+                <RNText className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>Diaries</RNText>
             </View>
 
             <View className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60" style={{ paddingHorizontal: scale(24), paddingTop: scale(12), paddingBottom: scale(16) }}>
                 <View className="flex-row items-center bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800" style={{ height: scale(46), paddingHorizontal: scale(16) }}>
                     <Ionicons name="search" size={scale(20)} color="#94A3B8" />
-                    <TextInput placeholder="검색어를 입력하세요..." placeholderTextColor="#94A3B8" className="flex-1 font-medium text-slate-900 dark:text-white py-0" style={{ marginLeft: scale(12), fontSize: scale(15), paddingVertical: 0, marginVertical: 0, textAlignVertical: 'center' }} value={searchQuery} onChangeText={setSearchQuery} clearButtonMode="while-editing" returnKeyType="search" allowFontScaling={false} />
+                    {/* 검색창 내부 텍스트는 폰트를 적용하면 레이아웃이 튈 수 있으니, TextInput 자체의 style에 fontFamily를 주입합니다. */}
+                    <TextInput
+                        placeholder="검색어를 입력하세요..."
+                        placeholderTextColor="#94A3B8"
+                        className="flex-1 font-medium text-slate-900 dark:text-white py-0"
+                        style={{ marginLeft: scale(12), fontSize: scale(15), paddingVertical: 0, marginVertical: 0, textAlignVertical: 'center', fontFamily: customFontFamily }}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        clearButtonMode="while-editing"
+                        returnKeyType="search"
+                        allowFontScaling={false}
+                    />
                 </View>
                 <View className="flex-row" style={{ gap: scale(8), marginTop: scale(16) }}>
                     {filterOptions.map((filter) => {

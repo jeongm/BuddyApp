@@ -1,5 +1,5 @@
+import type { AuthResponse, Member, SignupRequest, SignupResult } from '../types/auth';
 import { publicApi, authApi as tokenApi } from './axios';
-import type { AuthResponse, SignupRequest, SignupResult, Member } from '../types/auth';
 
 export const memberApi = {
     // ✨ [수정] 주소 변경: /api/v1/members/signup -> /api/v1/auth/signup
@@ -34,11 +34,9 @@ export const memberApi = {
         return response.data;
     },
 
-    // 비밀번호 수정
-    updatePassword: async (password: string) => {
-        const response = await tokenApi.patch<AuthResponse<string>>('/api/v1/members/me/password', {
-            password
-        });
+    // ✨ 비밀번호 수정 
+    updatePassword: async (data: { currentPassword: string; newPassword: string }) => {
+        const response = await tokenApi.patch('/api/v1/members/me/password', data);
         return response.data;
     },
 

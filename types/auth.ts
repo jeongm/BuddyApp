@@ -10,6 +10,8 @@ export interface AuthResponse<T> {
 // 2. 핵심: 사용자 정보 (Member)
 // 서버가 주는 "result.member" 또는 "result" 안의 내용물입니다.
 export interface Member {
+  refreshToken(accessToken: any, refreshToken: any): unknown;
+  accessToken: any;
   memberSeq: number;      // 기존 userSeq -> memberSeq
   email: string;
   nickname: string;

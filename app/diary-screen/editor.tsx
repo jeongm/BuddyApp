@@ -5,25 +5,37 @@ import { Image } from "expo-image";
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Modal, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { diaryApi } from "../../api/diaryApi";
-import { IS_TEST_MODE } from "../../config";
+import { AppText as Text } from '../../components/AppText';
+import { useChatStore } from "../../store/useChatStore"; // ✨ 1. 세션 리셋을 위해 추가
+import { useSettingStore } from "../../store/useSettingStore";
 
 const { width } = Dimensions.get('window');
 const scale = (size: number) => Math.round((width / 430) * size);
 
+const popupShadow = Platform.select({
+    ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.12, shadowRadius: 24 },
+    android: { elevation: 12 },
+});
+
 export default function DiaryEditorScreen() {
     const router = useRouter();
-    // ✨ origin 파라미터 받기 추가!
-    const params = useLocalSearchParams<{ mode: string, date?: string, diaryId?: string, sessionId?: string, origin?: string }>();
+    const { setSessionId } = useChatStore(); // ✨ 2. 세션 ID 변경 함수 가져오기
+
+    const { fontFamily } = useSettingStore();
+    const customFontFamily = fontFamily === 'System' ? undefined : fontFamily;
+
+    const params = useLocalSearchParams<{ mode: string, date?: string, diaryId?: string, sessionSeq?: string, sessionId?: string, origin?: string }>();
 
     const mode = params.mode as "create" | "edit";
     const diaryId = params.diaryId ? Number(params.diaryId) : undefined;
-    const sessionId = params.sessionId ? Number(params.sessionId) : undefined;
-    const origin = params.origin; // 출발지 꼬리표
+    const parsedSessionSeq = params.sessionSeq || params.sessionId;
+    const sessionSeq = parsedSessionSeq ? Number(parsedSessionSeq) : undefined;
+    const origin = params.origin;
 
-    const [targetDate, setTargetDate] = useState(params.date || new Date().toISOString().split("T")[0]);
+    const [targetDate, setTargetDate] = useState(params.date || format(new Date(), 'yyyy-MM-dd'));
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [tags, setTags] = useState<string[]>([]);
@@ -31,15 +43,19 @@ export default function DiaryEditorScreen() {
 
     const [images, setImages] = useState<string[]>([]);
     const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-    const [isAiLoading, setIsAiLoading] = useState(false);
 
-    // ✨ 핵심: 저장 중복 방지 로딩 상태!
+    const [isAiLoading, setIsAiLoading] = useState(origin === 'chat');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (mode === "edit" && diaryId) fetchDiaryDetail(diaryId);
-        else if (mode === "create" && sessionId) fetchAIDiary(sessionId);
-    }, [mode, diaryId, sessionId]);
+        if (mode === "edit" && diaryId) {
+            fetchDiaryDetail(diaryId);
+        } else if (mode === "create" && sessionSeq) {
+            fetchAIDiary(sessionSeq);
+        } else {
+            setIsAiLoading(false);
+        }
+    }, [mode, diaryId, sessionSeq]);
 
     const fetchAIDiary = async (seq: number) => {
         setIsAiLoading(true);
@@ -60,22 +76,17 @@ export default function DiaryEditorScreen() {
 
     const fetchDiaryDetail = async (seq: number) => {
         try {
-            if (IS_TEST_MODE) {
-                setTitle("테스트 일기");
-                setContent("내용");
-            } else {
-                const response = await diaryApi.getDiaryDetail(seq);
-                if (response?.result) {
-                    const d = response.result;
-                    setTitle(d.title);
-                    setContent(d.content);
-                    setTags(d.tags?.map((t: any) => t.name) || []);
-                    if (d.imageUrl) setImages([d.imageUrl]);
-                    else if (d.images && Array.isArray(d.images) && d.images.length > 0) {
-                        setImages(d.images.map((img: any) => typeof img === 'string' ? img : img.url));
-                    }
-                    if (d.diaryDate) setTargetDate(d.diaryDate);
+            const response = await diaryApi.getDiaryDetail(seq);
+            if (response?.result) {
+                const d = response.result;
+                setTitle(d.title);
+                setContent(d.content);
+                setTags(d.tags?.map((t: any) => t.name) || []);
+                if (d.imageUrl) setImages([d.imageUrl]);
+                else if (d.images && Array.isArray(d.images) && d.images.length > 0) {
+                    setImages(d.images.map((img: any) => typeof img === 'string' ? img : img.url));
                 }
+                if (d.diaryDate) setTargetDate(d.diaryDate);
             }
         } catch (error) {
             Alert.alert("알림", "일기를 불러오지 못했습니다.");
@@ -102,22 +113,19 @@ export default function DiaryEditorScreen() {
         }
     };
 
+    const handleClosePress = () => {
+        router.back();
+    };
+
     const handleSave = async () => {
-        // ✨ 중복 클릭 철벽 방어!
-        if (isSaving) return;
+        if (isSaving || isAiLoading) return;
         if (!title.trim() || !content.trim()) return Alert.alert("알림", "제목과 내용을 입력해주세요.");
 
-        setIsSaving(true); // 로딩 켜기
+        setIsSaving(true);
 
         try {
-            if (IS_TEST_MODE) {
-                // ✨ 테스트 모드에서도 목적지로 정확히 복귀
-                router.replace(origin === 'diary' ? '/(tabs)/diary' : '/(tabs)/calendar');
-                return;
-            }
-
             const formData = new FormData();
-            formData.append("request", JSON.stringify({ title, content, tags, diaryDate: targetDate, sessionSeq: sessionId }));
+            formData.append("request", JSON.stringify({ title, content, tags, diaryDate: targetDate, sessionSeq: sessionSeq }));
 
             if (selectedImageUri) {
                 const filename = selectedImageUri.split('/').pop() || 'photo.jpg';
@@ -125,14 +133,20 @@ export default function DiaryEditorScreen() {
                 formData.append("image", { uri: selectedImageUri, name: filename, type: match ? `image/${match[1]}` : `image` } as any);
             }
 
-            if (mode === "edit" && diaryId) await diaryApi.updateDiary(diaryId, formData);
-            else await diaryApi.createDiary(formData);
+            if (mode === "edit" && diaryId) {
+                await diaryApi.updateDiary(diaryId, formData);
+            } else {
+                await diaryApi.createDiary(formData);
+                // ✨ 3. [핵심 로직] 저장 성공 시, 대화 중이던 세션을 0으로 초기화하여 새 세션을 유도합니다.
+                if (sessionSeq) {
+                    setSessionId(0);
+                }
+            }
 
-            // ✨ 진짜 핵심: 다이어리에서 왔으면 다이어리로, 아니면 캘린더로 이동!
             router.replace(origin === 'diary' ? '/(tabs)/diary' : '/(tabs)/calendar');
         } catch (error) {
             Alert.alert("오류", "저장 중 오류가 발생했습니다.");
-            setIsSaving(false); // 에러 시에만 로딩 풀기 (성공 시엔 화면이 전환되므로 놔둠)
+            setIsSaving(false);
         }
     };
 
@@ -145,29 +159,24 @@ export default function DiaryEditorScreen() {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
 
                 <View className="flex-row items-center justify-between bg-white/90 dark:bg-slate-950/90 backdrop-blur-md z-20 border-b border-slate-100 dark:border-slate-800/60" style={{ paddingHorizontal: scale(16), paddingVertical: scale(6) }}>
-                    <TouchableOpacity onPress={() => router.back()} style={{ padding: scale(6) }} disabled={isSaving}>
+                    <TouchableOpacity onPress={handleClosePress} style={{ padding: scale(6) }} disabled={isSaving || isAiLoading}>
                         <Ionicons name="close" size={scale(28)} color="#64748B" />
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={handleSave} disabled={isSaving} className={`${isSaving ? 'bg-slate-300 dark:bg-slate-700' : 'bg-primary-600'} rounded-full shadow-sm`} style={{ paddingVertical: scale(8), paddingHorizontal: scale(16) }}>
-                        <Text className="font-extrabold text-white tracking-wide" style={{ fontSize: scale(14) }} allowFontScaling={false}>
+                    <TouchableOpacity onPress={handleSave} disabled={isSaving || isAiLoading} className={`${isSaving || isAiLoading ? 'bg-slate-100 dark:bg-slate-800' : 'bg-primary-600'} rounded-full shadow-sm`} style={{ paddingVertical: scale(8), paddingHorizontal: scale(16) }}>
+                        <RNText className={`font-black tracking-wide ${isSaving || isAiLoading ? 'text-slate-400' : 'text-white'}`} style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
                             {isSaving ? "저장 중" : "완료"}
-                        </Text>
+                        </RNText>
                     </TouchableOpacity>
                 </View>
 
-                {/* ✨ 저장 시 뜨는 전면 로딩 오버레이! (이게 있어야 연타를 물리적으로 못합니다) */}
-                {(isAiLoading || isSaving) && (
-                    <View className="absolute inset-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-center">
-                        <ActivityIndicator size="large" color="#94A3B8" />
-                        <Text className="text-slate-500 font-bold" style={{ marginTop: scale(16), fontSize: scale(14) }} allowFontScaling={false}>
-                            {isSaving ? "일기를 저장하고 있어요..." : "버디가 초안을 정리하고 있어요..."}
-                        </Text>
+                {isSaving && (
+                    <View className="absolute inset-0 z-50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-sm items-center justify-center">
+                        <ActivityIndicator size="large" color="#64748B" />
                     </View>
                 )}
 
                 <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(140), paddingTop: scale(32) }} showsVerticalScrollIndicator={false}>
-                    {/* ... (이하 스크롤뷰 내부는 기존과 100% 동일) ... */}
                     <View className="items-center" style={{ paddingHorizontal: scale(28), marginBottom: scale(40) }}>
                         <Text className="font-extrabold text-primary-600 dark:text-primary-400 uppercase tracking-widest" style={{ marginBottom: scale(16), fontSize: scale(13) }} allowFontScaling={false}>
                             {formattedDate}
@@ -241,6 +250,28 @@ export default function DiaryEditorScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            <Modal
+                visible={isAiLoading}
+                transparent={true}
+                animationType="fade"
+            >
+                <View className="flex-1 bg-slate-900/20 dark:bg-black/50 backdrop-blur-sm items-center justify-center px-8">
+                    <View className="items-center justify-center bg-white dark:bg-slate-900 rounded-[32px] w-full py-10 px-6 border border-slate-100 dark:border-slate-800" style={popupShadow}>
+                        <View className="bg-primary-50 dark:bg-primary-900/30 w-20 h-20 rounded-full items-center justify-center mb-6">
+                            <ActivityIndicator size="large" color="#3B82F6" />
+                        </View>
+
+                        <RNText className="text-slate-900 dark:text-white font-black text-center mb-3" style={{ fontSize: scale(20), fontFamily: customFontFamily }} allowFontScaling={false}>
+                            일기를 정리하고 있어요 ✨
+                        </RNText>
+                        <Text className="text-slate-500 dark:text-slate-400 font-medium text-center leading-6" style={{ fontSize: scale(14) }} allowFontScaling={false}>
+                            버디가 방금 나눈 대화를 바탕으로{"\n"}멋진 일기를 쓰고 있습니다.
+                        </Text>
+                    </View>
+                </View>
+            </Modal>
+
         </SafeAreaView>
     );
 }
