@@ -92,7 +92,7 @@ export default function SettingsScreen() {
                     style={{ fontFamily: customFontFamily }}
                     allowFontScaling={false}
                 >
-                    Settings
+                    Setting
                 </RNText>
             </View>
 

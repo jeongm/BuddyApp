@@ -188,7 +188,7 @@ export default function DiaryFeedScreen() {
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
             <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-20">
                 {/* 🚨 헤더 교체 완료 (크기 유지, 폰트 연동) 🚨 */}
-                <RNText className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>Diaries</RNText>
+                <RNText className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>Story</RNText>
             </View>
 
             <View className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60" style={{ paddingHorizontal: scale(24), paddingTop: scale(12), paddingBottom: scale(16) }}>
