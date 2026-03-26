@@ -1,11 +1,26 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
-import { Stack, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, TouchableOpacity, View } from "react-native";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+// ✅ react-native의 Animated 제거, reanimated로 교체
+import { Dimensions, Modal, TouchableOpacity, View, useColorScheme } from "react-native";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { notificationApi } from "@/api/notificationApi";
 import { chatApi } from "../../api/chatApi";
+import { memberApi } from "../../api/memberApi";
 import { AppText as Text } from '../../components/AppText';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
 
@@ -20,100 +35,237 @@ const safeShadow = {
   shadowOffset: { width: 0, height: scale(8) }
 };
 
+const SILENCE_TIMEOUT_MS = 1500;
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const colorScheme = useColorScheme();
+
+  const params = useLocalSearchParams();
+  const isNewUser = params.isNewUser === 'true';
+
+  const { user, refreshUser } = useAuthStore();
   const { sessionId, setSessionId } = useChatStore();
+  const { pushToken } = usePushNotifications();
 
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [myTranscript, setMyTranscript] = useState("마이크를 눌러 편하게 이야기해 보세요.");
-  const [aiMessage, setAiMessage] = useState(``);
+  const [aiMessage, setAiMessage] = useState("");
+  const [recognizedText, setRecognizedText] = useState("");
 
-  useEffect(() => {
-    // 만약 아직 아무 대화도 하지 않은 상태(초기 인사 상태)라면 닉네임 변화를 반영합니다.
-    // (대화 도중에 갑자기 인사가 바뀌면 이상하니까요!)
-    if (!isLoading && (aiMessage === "" || aiMessage.includes("안녕") && aiMessage.includes("어땠어?"))) {
-      setAiMessage(`안녕, ${user?.nickname || "친구"}!\n오늘 하루는 어땠어?`);
-    }
-  }, [user?.nickname]); // 🚨 user.nickname이 바뀔 때마다 실행됩니다!
+  const recognizedTextRef = useRef("");
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const getProfileImage = (seq?: number) => {
-    switch (seq) {
-      case 1: return require('../../assets/images/characters/Hamster.png');
-      case 2: return require('../../assets/images/characters/Fox.png');
-      case 3: return require('../../assets/images/characters/Bear.png');
-      default: return require('../../assets/images/characters/Hamster.png');
+  const [showNightModal, setShowNightModal] = useState(false);
+  const [isDailyAgreed, setIsDailyAgreed] = useState(false);
+
+  // ✅ reanimated SharedValue로 교체
+  const pulseScale = useSharedValue(1);
+
+  // ✅ reanimated AnimatedStyle
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const updateRecognizedText = (text: string) => {
+    recognizedTextRef.current = text;
+    setRecognizedText(text);
+  };
+
+  const clearSilenceTimer = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
   };
-  const currentProfileImg = getProfileImage(user?.characterSeq);
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useSpeechRecognitionEvent("start", () => {
+    setIsListening(true);
+    clearSilenceTimer();
+    Haptics?.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    clearSilenceTimer();
+    setIsListening(false);
+    if (recognizedTextRef.current.trim().length > 0) {
+      handleSendMessage(recognizedTextRef.current);
+      recognizedTextRef.current = "";
+      setRecognizedText("");
+    } else {
+      setMyTranscript("듣지 못했어요. 다시 말해주세요!");
+    }
+  });
+
+  useSpeechRecognitionEvent("error", () => {
+    clearSilenceTimer();
+    setIsListening(false);
+    setMyTranscript("잘 듣지 못했어요. 다시 시도해 주세요!");
+    Haptics?.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => { });
+  });
+
+  useSpeechRecognitionEvent("result", (event) => {
+    if (event.results?.[0]?.transcript) {
+      setMyTranscript(event.results[0].transcript);
+      updateRecognizedText(event.results[0].transcript);
+      clearSilenceTimer();
+      silenceTimerRef.current = setTimeout(() => {
+        ExpoSpeechRecognitionModule.stop();
+      }, SILENCE_TIMEOUT_MS);
+    }
+  });
 
   useEffect(() => {
+    if (isNewUser) {
+      setTimeout(() => setShowNightModal(true), 500);
+    }
+  }, [isNewUser]);
+
+  const handleNotificationSubmit = async (accepted: boolean) => {
+    setShowNightModal(false);
+    try {
+      if (accepted) {
+        await notificationApi.updateNight(true);
+        console.log("✅ 야간 알림 설정 완료");
+        if (isDailyAgreed) {
+          await notificationApi.updateDaily(true);
+          console.log("✅ 데일리 알림 설정 완료");
+        }
+      }
+    } catch (error) {
+      console.error("❌ 알림 설정 실패:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (pushToken && user) {
+      memberApi.updatePushToken(pushToken)
+        .then(() => console.log('✅ 토큰 전송 완료!'))
+        .catch((error) => console.error("❌ 푸시 토큰 전송 실패:", error));
+    }
+  }, [pushToken, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+
+      const syncLatestChat = async () => {
+        if (sessionId === 0) {
+          setAiMessage(`안녕, ${user?.nickname || "친구"}!\n오늘 하루는 어땠어?`);
+          setMyTranscript("마이크를 눌러 편하게 이야기해 보세요.");
+          return;
+        }
+        try {
+          const res = await chatApi.getChatHistory(sessionId);
+          const resultData = res?.result as any;
+
+          if (resultData?.messages && Array.isArray(resultData.messages)) {
+            const sortedMessages = [...resultData.messages].sort((a: any, b: any) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+            const lastAiMsg = sortedMessages.find((m: any) => (m.role || "").toUpperCase() !== "USER");
+            if (lastAiMsg) setAiMessage(lastAiMsg.content);
+
+            const lastUserMsg = sortedMessages.find((m: any) => (m.role || "").toUpperCase() === "USER");
+            setMyTranscript(lastUserMsg ? lastUserMsg.content : "마이크를 눌러 편하게 이야기해 보세요.");
+          }
+        } catch (error: any) {
+          if (String(error).includes("404")) {
+            setSessionId(0);
+            setAiMessage(`안녕, ${user?.nickname || "친구"}!\n오늘 하루는 어땠어?`);
+            setMyTranscript("마이크를 눌러 편하게 이야기해 보세요.");
+          }
+        }
+      };
+      syncLatestChat();
+
+      return () => clearSilenceTimer();
+    }, [sessionId, user?.nickname, refreshUser])
+  );
+
+  const currentProfileImg = (() => {
+    switch (user?.characterId) {
+      case 1: return require('../../assets/images/characters/Hamster.webp');
+      case 2: return require('../../assets/images/characters/Fox.webp');
+      case 3: return require('../../assets/images/characters/Bear.webp');
+      default: return require('../../assets/images/characters/Hamster.webp');
+    }
+  })();
+
+  // ✅ reanimated로 교체 - release 빌드에서도 안정적으로 작동
+  useEffect(() => {
     if (isListening) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
-        ])
-      ).start();
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.1, { duration: 1000 }),
+          withTiming(1, { duration: 1000 })
+        ),
+        -1, // 무한 반복
+        false
+      );
     } else {
-      pulseAnim.setValue(1);
-      pulseAnim.stopAnimation();
+      cancelAnimation(pulseScale);
+      pulseScale.value = withTiming(1, { duration: 200 });
     }
   }, [isListening]);
 
-  // ✨ 최신 API 명세에 맞춰 완벽하게 수정된 전송 로직
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
     setIsLoading(true);
 
     try {
-      // 🚨 1. API 요청 시 키값을 sessionSeq로 맞춰서 보냅니다.
-      // (store에서 가져온 sessionId 값을 sessionSeq라는 이름표를 붙여 전송)
-      const response = await chatApi.sendMessage({ sessionSeq: sessionId, content: text });
-
+      const response = await chatApi.sendMessage({ sessionId: sessionId, content: text });
       const resultData = response.result as any;
 
-      // 🚨 2. 응답 데이터에서 메시지 꺼내기 (result.message.content)
-      const aiReply = resultData?.message?.content || "응답을 이해하지 못했어요.";
-
-      // 🚨 3. 새로 발급된 방 번호 확인 및 업데이트 (resultData.sessionSeq)
-      if (resultData?.sessionSeq && resultData.sessionSeq !== sessionId) {
-        setSessionId(resultData.sessionSeq);
+      if (resultData?.sessionId && resultData.sessionId !== sessionId) {
+        setSessionId(resultData.sessionId);
       }
-
-      setAiMessage(aiReply);
-    } catch (error) {
-      setAiMessage("서버 연결이 불안정해요.\n다시 말해줄래? 😢");
+      setAiMessage(resultData?.message?.content || "응답을 이해하지 못했어요.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      if (String(error).includes("404")) {
+        setSessionId(0);
+        setAiMessage("앗, 대화방 시간이 만료되었어!\n다시 말을 걸어줄래?");
+      } else {
+        setAiMessage("서버 연결이 불안정해요.\n다시 말해줄래? 😢");
+      }
     } finally {
       setIsLoading(false);
-      setMyTranscript("터치해서 다시 말하기");
+      setRecognizedText("");
     }
   };
 
-  // ✨ 음성 인식 로직이 들어갈 뼈대 함수
-  const toggleListening = () => {
+  const toggleListening = async () => {
     if (isLoading) return;
 
     if (isListening) {
-      // TODO: 음성 인식 중지 및 결과 텍스트 전송 로직
-      setIsListening(false);
-      const mockText = "오늘 진짜 뿌듯한 하루였어!"; // (임시) 나중에 실제 변환된 텍스트로 교체
-      setMyTranscript(mockText);
-      handleSendMessage(mockText);
+      clearSilenceTimer();
+      ExpoSpeechRecognitionModule.stop();
     } else {
-      // TODO: 마이크 권한 확인 및 음성 인식 시작 로직
-      setIsListening(true);
+      const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!granted) {
+        setMyTranscript("마이크 권한이 필요해요. 설정에서 허용해 주세요!");
+        return;
+      }
+      recognizedTextRef.current = "";
+      setRecognizedText("");
       setMyTranscript("듣고 있어요... 👂");
+      ExpoSpeechRecognitionModule.start({
+        lang: "ko-KR",
+        interimResults: true,
+      });
     }
   };
+
+  const isAiMessageLong = aiMessage.length > 20;
 
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-      <View className="flex-row justify-end px-6 pt-4 z-20">
+
+      {/* 키보드 버튼 - 고정 */}
+      <View className="flex-row justify-end items-center px-6 w-full" style={{ height: scale(60) }}>
         <TouchableOpacity
           onPress={() => router.push('/chat/keyboard-chat')}
           activeOpacity={0.7}
@@ -124,31 +276,40 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View className="flex-1 items-center justify-center px-6 -mt-8">
-        <View style={{ minHeight: scale(120), marginBottom: scale(32) }} className="justify-center items-center w-full">
-          <Text
-            className="font-extrabold text-slate-900 dark:text-white text-center tracking-tight"
-            style={{ fontSize: scale(28), lineHeight: scale(42) }}
-            allowFontScaling={false}
-          >
-            {isLoading ? "버디가 생각하는 중..." : aiMessage}
-          </Text>
-        </View>
+      {/* AI 텍스트 - 키보드 버튼 아래 ~ 캐릭터 위 공간에서 상하좌우 중앙정렬 */}
+      <View className="flex-1 items-center justify-center px-6">
+        <Text
+          className="font-extrabold text-slate-900 dark:text-white text-center tracking-tight"
+          style={{ fontSize: isAiMessageLong ? scale(20) : scale(28), lineHeight: isAiMessageLong ? scale(30) : scale(42) }}
+          allowFontScaling={false}
+        >
+          {isLoading ? "버디가 생각하는 중..." : aiMessage}
+        </Text>
+      </View>
 
-        <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%', maxWidth: scale(280), aspectRatio: 1 }} className="items-center justify-center relative">
-          <View className={`absolute inset-0 rounded-full blur-2xl transition-all duration-700 ${isListening ? 'bg-primary-100/80 dark:bg-primary-900/40 scale-110' : 'bg-transparent scale-100'}`} />
+      {/* 캐릭터 이미지 - 고정 */}
+      <View className="items-center justify-center" style={{ height: scale(280), marginBottom: scale(60) }}>
+        {/* ✅ reanimated Animated.View + useAnimatedStyle 적용 */}
+        <Animated.View
+          style={[{ width: scale(280), aspectRatio: 1 }, pulseAnimatedStyle]}
+          className="items-center justify-center relative"
+        >
+          <View className={`absolute inset-0 rounded-full blur-2xl transition-all duration-700 ${isListening ? 'bg-primary-500/30 scale-110' : 'bg-transparent scale-100'}`} />
           <Image source={currentProfileImg} style={{ width: scale(220), height: scale(220), zIndex: 10 }} contentFit="contain" />
           <View
             className="absolute bg-slate-200/50 dark:bg-slate-800/50 rounded-[100%] blur-md"
-            style={{ width: scale(160), height: scale(32), bottom: scale(16), transform: [{ scaleY: 0.5 }] }}
+            style={{ width: scale(160), height: scale(32), bottom: scale(-5), transform: [{ scaleY: 0.5 }] }}
           />
         </Animated.View>
       </View>
 
-      <View className="px-6 pb-12 pt-6 items-center">
+      {/* 유저 텍스트 + 마이크 버튼 - 고정 */}
+      <View className="px-6 pb-12 pt-6 items-center w-full">
         <Text
-          className={`font-bold text-center transition-colors duration-300 ${isListening ? "text-primary-600 dark:text-primary-400" : "text-slate-400 dark:text-slate-500"}`}
-          style={{ fontSize: scale(15), marginBottom: scale(40) }}
+          className={`font-bold text-center transition-colors duration-300 w-full ${isListening ? "text-primary-500" : "text-slate-400 dark:text-slate-500"}`}
+          style={{ fontSize: scale(15), marginBottom: scale(40), paddingHorizontal: scale(10) }}
+          numberOfLines={2}
+          ellipsizeMode="tail"
           allowFontScaling={false}
         >
           {isListening ? `"${myTranscript}"` : myTranscript}
@@ -157,8 +318,13 @@ export default function HomeScreen() {
         <TouchableOpacity
           onPress={toggleListening}
           disabled={isLoading}
-          activeOpacity={0.7}
-          className={`rounded-full items-center justify-center transition-colors duration-300 z-20 ${isLoading ? "bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800" : isListening ? "bg-red-500" : "bg-primary-600"}`}
+          activeOpacity={0.8}
+          className={`items-center justify-center transition-all duration-300 z-20 
+                    ${isLoading
+              ? "bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full"
+              : isListening
+                ? "bg-red-500 rounded-[24px] scale-95"
+                : "bg-primary-500 rounded-full scale-100"}`}
           style={[isLoading ? {} : safeShadow, { width: scale(80), height: scale(80) }]}
         >
           <Ionicons
@@ -168,6 +334,64 @@ export default function HomeScreen() {
           />
         </TouchableOpacity>
       </View>
+
+      <Modal visible={showNightModal} transparent={true} animationType="fade">
+        <View className="flex-1 justify-center items-center bg-black/60 px-6">
+          <View className="bg-white dark:bg-slate-900 w-full rounded-[2rem] p-8 items-center" style={safeShadow}>
+
+            <View className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full items-center justify-center mb-5">
+              <Ionicons name="moon" size={scale(32)} color="#F59E0B" />
+            </View>
+
+            <Text className="font-black text-slate-900 dark:text-white text-center mb-3" style={{ fontSize: scale(22) }} allowFontScaling={false}>
+              버디의 밤인사 받기 🌙
+            </Text>
+
+            <Text className="font-medium text-slate-500 dark:text-slate-400 text-center mb-6" style={{ fontSize: scale(14), lineHeight: scale(22) }} allowFontScaling={false}>
+              늦은 밤(21시~08시)에도 버디가 안부를 묻고 위로의 말을 건넬 수 있도록 알림을 허용하시겠어요?
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setIsDailyAgreed(prev => !prev)}
+              activeOpacity={0.7}
+              className="flex-row items-center bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl w-full mb-8 border border-slate-100 dark:border-slate-800"
+            >
+              <View className={`w-5 h-5 rounded-md border-2 items-center justify-center mr-3 ${isDailyAgreed ? 'bg-slate-900 border-slate-900 dark:bg-white dark:border-white' : 'bg-transparent border-slate-300 dark:border-slate-600'}`}>
+                {isDailyAgreed && <Ionicons name="checkmark" size={scale(14)} color={colorScheme === 'dark' ? '#0F172A' : '#FFFFFF'} />}
+              </View>
+              <Text className="font-bold text-slate-700 dark:text-slate-300" style={{ fontSize: scale(13) }} allowFontScaling={false}>
+                [선택] 버디의 데일리 안부도 받을게요 💌
+              </Text>
+            </TouchableOpacity>
+
+            <View className="w-full" style={{ gap: scale(10) }}>
+              <TouchableOpacity
+                onPress={() => handleNotificationSubmit(true)}
+                activeOpacity={0.8}
+                className="w-full bg-slate-900 dark:bg-white rounded-2xl items-center justify-center"
+                style={{ height: scale(56) }}
+              >
+                <Text className="font-extrabold text-white dark:text-slate-900" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                  네, 받을게요!
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleNotificationSubmit(false)}
+                activeOpacity={0.8}
+                className="w-full bg-slate-100 dark:bg-slate-800 rounded-2xl items-center justify-center"
+                style={{ height: scale(56) }}
+              >
+                <Text className="font-bold text-slate-500 dark:text-slate-400" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                  나중에 할게요
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }

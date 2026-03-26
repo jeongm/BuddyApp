@@ -6,14 +6,14 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Dimensions, Platform, RefreshControl, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp, ZoomIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppText as Text } from '../../components/AppText';
 
-// api & store
 import { diaryApi } from "../../api/diaryApi";
 import { insightApi, type WeeklyIdentity, type WeeklyTag } from "../../api/insightApi";
+import { AppText as Text } from '../../components/AppText';
 import { useAuthStore } from "../../store/useAuthStore";
 import { useSettingStore } from "../../store/useSettingStore";
-import { useThemeStore } from "../../store/useThemeStore";
+// [추가] 테마 스토어 연동 (하드코딩 삭제!)
+import { ACCENT_HEX_COLORS, useThemeStore } from "../../store/useThemeStore";
 import type { DiarySummary } from "../../types/diary";
 
 const { width } = Dimensions.get('window');
@@ -25,11 +25,13 @@ const safeShadow = Platform.select({
 });
 
 export default function ReportScreen() {
-    const { user } = useAuthStore();
-    const { accent } = useThemeStore();
+    const { user, refreshUser } = useAuthStore();
     const { fontFamily } = useSettingStore();
     const customFontFamily = fontFamily === 'System' ? undefined : fontFamily;
-    const accentHex = { default: '#64748B', violet: '#8B5CF6', rose: '#F43F5E', blue: '#3B82F6', green: '#22C55E' }[accent] || '#64748B';
+
+    // [테마] 전역 색상 동기화
+    const { accent } = useThemeStore();
+    const accentHex = ACCENT_HEX_COLORS[accent];
 
     const [diaries, setDiaries] = useState<DiarySummary[]>([]);
     const [tags, setTags] = useState<WeeklyTag[]>([]);
@@ -37,18 +39,20 @@ export default function ReportScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const getBuddyImage = (seq?: number) => {
+    // [로직] 캐릭터 프로필 이미지 매핑
+    const getBuddyImage = useCallback((seq?: number) => {
         switch (seq) {
-            case 1: return require('../../assets/images/characters/Hamster.png');
-            case 2: return require('../../assets/images/characters/Fox.png');
-            case 3: return require('../../assets/images/characters/Bear.png');
-            default: return require('../../assets/images/characters/Hamster.png');
+            case 1: return require('../../assets/images/characters/Hamster.webp');
+            case 2: return require('../../assets/images/characters/Fox.webp');
+            case 3: return require('../../assets/images/characters/Bear.webp');
+            default: return require('../../assets/images/characters/Hamster.webp');
         }
-    };
+    }, []);
 
+    // [통신] 리포트 데이터 전체 로드
     const fetchAllData = useCallback(async () => {
-        if (!user) return;
         try {
+            await refreshUser();
             const [diaryRes, tagsData, identityData] = await Promise.all([
                 diaryApi.getDiaries("", 0, 100, "diaryDate,desc"),
                 insightApi.getWeeklyTags(),
@@ -63,13 +67,14 @@ export default function ReportScreen() {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [refreshUser]);
 
     useFocusEffect(useCallback(() => {
         setLoading(true);
         fetchAllData();
     }, [fetchAllData]));
 
+    // [로직] 리포트 통계 데이터 가공
     const reportData = useMemo(() => {
         const now = new Date();
         const daysOfWeek = ["월", "화", "수", "목", "금", "토", "일"];
@@ -77,9 +82,11 @@ export default function ReportScreen() {
 
         const sortedDates = Array.from(new Set(diaries.map(d => format(getSafeDate(d), 'yyyy-MM-dd'))))
             .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
         let streak = 0;
         const todayStr = format(now, 'yyyy-MM-dd');
         const yesterdayStr = format(subDays(now, 1), 'yyyy-MM-dd');
+
         if (sortedDates.includes(todayStr) || sortedDates.includes(yesterdayStr)) {
             let tempDate = sortedDates.includes(todayStr) ? now : subDays(now, 1);
             while (sortedDates.includes(format(tempDate, 'yyyy-MM-dd'))) {
@@ -114,8 +121,8 @@ export default function ReportScreen() {
         const comparison = thisWeekCount - lastWeekCount;
         const activeDays = weeklyData.filter(d => d.count > 0).length;
         const maxWeeklyCount = Math.max(...weeklyData.map(d => d.count)) || 1;
-
         const totalCount = diaries.length;
+
         const getLevelInfo = (count: number) => {
             let currentLevel = 1;
             let totalNeeded = 0;
@@ -125,6 +132,7 @@ export default function ReportScreen() {
             }
             return { level: currentLevel, progress: (count - totalNeeded) / currentLevel, remaining: currentLevel - (count - totalNeeded) };
         };
+
         const { level, progress, remaining } = getLevelInfo(totalCount);
         const levelTitle = level > 10 ? "영혼의 단짝" : level > 5 ? "말하지 않아도 아는 사이" : level > 2 ? "친해지는 중인 친구" : "어색한 시작";
 
@@ -157,6 +165,7 @@ export default function ReportScreen() {
         <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
 
+            {/* 헤더 영역 */}
             <View className="px-6 py-4 pb-2 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-xl z-20 border-b border-slate-200/60 dark:border-slate-800/60">
                 <RNText className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>
                     Reflection
@@ -169,12 +178,12 @@ export default function ReportScreen() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await fetchAllData(); setRefreshing(false); }} tintColor={accentHex} />}
             >
-                {/* 🤝 1. 우정 레벨 카드 */}
+                {/* [UI] 우정 레벨 카드 */}
                 <Animated.View entering={FadeInUp.delay(100).duration(800).springify()} style={{ marginBottom: scale(32) }}>
                     <View className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800" style={[{ padding: scale(24), borderRadius: scale(32) }, safeShadow]}>
                         <View className="flex-row items-center mb-6">
                             <View className="relative">
-                                <Image source={getBuddyImage(user?.characterSeq)} style={{ width: scale(80), height: scale(80), marginRight: scale(16) }} contentFit="contain" />
+                                <Image source={getBuddyImage(user?.characterId)} style={{ width: scale(80), height: scale(80), marginRight: scale(16) }} contentFit="contain" />
                                 <View className="absolute -bottom-1 left-0 right-0 items-center" style={{ marginRight: scale(16) }}>
                                     <View className="px-2.5 py-0.5 rounded-full border-2 border-white dark:border-slate-900" style={{ backgroundColor: accentHex }}>
                                         <Text className="text-white font-black" style={{ fontSize: scale(11) }} allowFontScaling={false}>Lv.{level}</Text>
@@ -183,8 +192,8 @@ export default function ReportScreen() {
                             </View>
                             <View className="flex-1">
                                 <View className="flex-row items-center mb-1.5">
-                                    {/* 📍 primary-500 -> primary-600 적용 */}
-                                    <View className="bg-primary-600 px-2 py-0.5 rounded-md mr-2">
+                                    {/* ✨ BESTIE 뱃지 색상을 primary-500으로 통일! */}
+                                    <View className="bg-primary-500 px-2 py-0.5 rounded-md mr-2">
                                         <Text className="text-white font-black" style={{ fontSize: scale(10) }} allowFontScaling={false}>BESTIE</Text>
                                     </View>
                                     <Text className="text-slate-400 font-bold" style={{ fontSize: scale(12) }} allowFontScaling={false}>벌써 {total}번째 만남</Text>
@@ -217,7 +226,7 @@ export default function ReportScreen() {
                     </View>
                 </Animated.View>
 
-                {/* 🌟 2. 아이덴티티 카드 */}
+                {/* [UI] 위클리 아이덴티티 카드 */}
                 <Animated.View entering={FadeInUp.delay(200).duration(800).springify()} style={{ marginBottom: scale(32) }}>
                     {identity && identity.weeklyIdentity ? (
                         <View className="bg-slate-900 dark:bg-white overflow-hidden" style={[{ padding: scale(28), borderRadius: scale(32) }, safeShadow]}>
@@ -227,7 +236,8 @@ export default function ReportScreen() {
                             <View className="flex-row justify-between items-start mb-6 z-10">
                                 <View className="flex-1">
                                     <View className="flex-row items-center mb-1.5" style={{ gap: scale(6) }}>
-                                        <Text className="text-primary-400 dark:text-primary-600 font-extrabold uppercase tracking-widest" style={{ fontSize: scale(11) }} allowFontScaling={false}>Weekly Identity</Text>
+                                        {/* ✨ 라벨 색상을 primary-500으로 통일! */}
+                                        <Text className="text-primary-500 font-extrabold uppercase tracking-widest" style={{ fontSize: scale(11) }} allowFontScaling={false}>Weekly Identity</Text>
                                         <View className="w-1 h-1 rounded-full bg-slate-700 dark:bg-slate-300" />
                                         <Text className="text-slate-500 dark:text-slate-400 font-bold" style={{ fontSize: scale(11) }} allowFontScaling={false}>{lastWeekRange}</Text>
                                     </View>
@@ -251,18 +261,19 @@ export default function ReportScreen() {
                     )}
                 </Animated.View>
 
-                {/* 📊 3. 기록의 리듬 */}
+                {/* [UI] 기록의 리듬 (요약 카드들) */}
                 <Animated.View entering={FadeInUp.delay(400).duration(800).springify()} style={{ marginBottom: scale(32) }}>
                     <View className="mb-4 px-2">
                         <Text className="font-black text-slate-900 dark:text-white" style={{ fontSize: scale(18) }} allowFontScaling={false}>기록의 리듬</Text>
                         <Text className="text-slate-400 font-bold mt-1" style={{ fontSize: scale(12) }} allowFontScaling={false}>버디와 함께 마음의 온기를 이어가고 있어요</Text>
                     </View>
 
+                    {/* 이 요약 카드들은 각각의 의미(불꽃=주황, 캘린더=파랑 등)가 있으므로 테마 동기화 대신 고유 색상을 유지합니다. */}
                     <View className="flex-row flex-wrap justify-between">
                         <SummaryCard icon="flame" color="#F97316" bg="bg-orange-100" value={currentStreak} unit="일" label="연속 기록" delay={200} />
                         <SummaryCard icon="calendar" color="#3B82F6" bg="bg-blue-100" value={thisWeekCount} unit="회" label="이번 주 합계" delay={300} />
                         <SummaryCard icon="checkbox" color="#10B981" bg="bg-emerald-100" value={activeDays} unit="일" label="기록한 날들" delay={400} />
-                        <SummaryCard icon="trending-up" color="#8B5CF6" bg="bg-purple-100" value={comparison === 0 ? "-" : (comparison > 0 ? `+${comparison}` : comparison)} unit={comparison === 0 ? "" : "회"} label="지난주 대비" delay={500} />
+                        <SummaryCard icon="bar-chart" color="#8B5CF6" bg="bg-purple-100" value={comparison === 0 ? "-" : (comparison > 0 ? `+${comparison}` : comparison)} unit={comparison === 0 ? "" : "회"} label="지난주 대비" delay={500} />
                     </View>
 
                     <View className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800" style={[{ padding: scale(24), borderRadius: scale(32) }, safeShadow]}>
@@ -280,7 +291,7 @@ export default function ReportScreen() {
                             <View className="items-center">
                                 <Text className="text-slate-400 font-bold mb-1" style={{ fontSize: scale(11) }} allowFontScaling={false}>최고 기록</Text>
                                 <View className="flex-row items-end">
-                                    <Text className="text-slate-900 dark:text-white font-black" style={{ fontSize: scale(32) }} allowFontScaling={false}>{currentStreak > 0 ? Math.max(currentStreak, 10) : 0}</Text>
+                                    <Text className="text-slate-900 dark:text-white font-black" style={{ fontSize: scale(32) }} allowFontScaling={false}>{currentStreak}</Text>
                                     <Text className="text-slate-400 font-bold ml-1 mb-2" style={{ fontSize: scale(14) }} allowFontScaling={false}>일</Text>
                                 </View>
                             </View>
@@ -314,7 +325,7 @@ export default function ReportScreen() {
                     </View>
                 </Animated.View>
 
-                {/* ✨ 4. 마음 조각들 */}
+                {/* [UI] 마음 조각들 (해시태그 랭킹) */}
                 <Animated.View entering={FadeInUp.duration(600).delay(800).springify()} style={{ marginBottom: scale(32) }}>
                     <View className="mb-3 px-2">
                         <Text className="font-black text-slate-900 dark:text-white" style={{ fontSize: scale(18) }} allowFontScaling={false}>마음을 채운 조각들</Text>
@@ -322,7 +333,7 @@ export default function ReportScreen() {
                     </View>
 
                     <View className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60" style={[{ padding: scale(20), borderRadius: scale(32) }, safeShadow]}>
-                        <View className="flex-row flex-wrap justify-center" style={{ gap: scale(8) }}>
+                        <View className="flex-row flex-wrap justify-center" style={{ gap: scale(15) }}>
                             {topTags.map(([tag, count], idx) => {
                                 const isRanked = idx < 3;
                                 const medalColors = ['#FBBF24', '#94A3B8', '#B45309'];
@@ -334,10 +345,9 @@ export default function ReportScreen() {
                                         entering={ZoomIn.delay(1000 + (idx * 100)).springify()}
                                     >
                                         <View
-                                            // 📍 캡슐형으로 컴백: rounded-full 적용
                                             className="bg-primary-50 dark:bg-primary-900/40 rounded-full border border-primary-100/50 dark:border-primary-800/50 flex-row items-center"
                                             style={{
-                                                paddingHorizontal: scale(14), // 캡슐형은 좌우 여백이 조금 더 길어야 예쁩니다
+                                                paddingHorizontal: scale(14),
                                                 paddingVertical: scale(8)
                                             }}
                                         >
@@ -349,12 +359,13 @@ export default function ReportScreen() {
                                                     style={{ marginRight: scale(4) }}
                                                 />
                                             )}
+                                            {/* ✨ 태그 글자색을 primary-500으로 변경! */}
                                             <Text
-                                                className="text-primary-600 dark:text-primary-300 font-extrabold uppercase tracking-wide"
+                                                className="text-primary-500 dark:text-primary-300 font-extrabold uppercase tracking-wide"
                                                 style={{ fontSize: scale(13) }}
                                                 allowFontScaling={false}
                                             >
-                                                #{tag} <Text className="text-primary-600 dark:text-primary-300" style={{ opacity: 0.6, fontSize: scale(11) }}>{count as number}</Text>
+                                                #{tag} <Text className="text-primary-500 dark:text-primary-300" style={{ opacity: 0.6, fontSize: scale(11) }}>{count as number}</Text>
                                             </Text>
                                         </View>
                                     </Animated.View>

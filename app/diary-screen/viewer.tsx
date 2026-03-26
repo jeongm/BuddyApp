@@ -6,8 +6,10 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { diaryApi } from "../../api/diaryApi";
 import { AppText as Text } from '../../components/AppText';
+import { ACCENT_HEX_COLORS, useThemeStore } from "../../store/useThemeStore";
 import type { DiaryDetail } from "../../types/diary";
 
 const { width } = Dimensions.get('window');
@@ -19,9 +21,14 @@ export default function DiaryViewerScreen() {
     const { id, origin } = useLocalSearchParams<{ id: string, origin?: string }>();
     const diaryId = Number(id);
 
+    // [테마] 전역 색상 동기화
+    const { accent } = useThemeStore();
+    const accentHex = ACCENT_HEX_COLORS[accent];
+
     const [diary, setDiary] = useState<DiaryDetail | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // [통신] 일기 상세 내용 로드
     useEffect(() => {
         const fetchDetail = async () => {
             if (!diaryId) return;
@@ -39,6 +46,7 @@ export default function DiaryViewerScreen() {
         fetchDetail();
     }, [diaryId]);
 
+    // [로직] 일기 삭제 처리
     const handleDelete = () => {
         Alert.alert("일기 삭제", "정말 이 일기를 삭제하시겠습니까?\n(복구 불가)", [
             { text: "취소", style: "cancel" },
@@ -59,7 +67,7 @@ export default function DiaryViewerScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-white dark:bg-slate-950 items-center justify-center">
-                <ActivityIndicator size="large" color="#94A3B8" />
+                <ActivityIndicator size="large" color={accentHex} />
             </View>
         );
     }
@@ -71,16 +79,16 @@ export default function DiaryViewerScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950 relative" edges={['top', 'bottom']}>
-            {/* 뷰어는 일반적인 스와이프를 허용합니다 */}
             <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
 
+            {/* 상단 헤더 (뒤로가기, 수정, 삭제) */}
             <View className="flex-row items-center justify-between bg-white/90 dark:bg-slate-950/90 backdrop-blur-md z-20 border-b border-slate-100 dark:border-slate-800/60 relative" style={{ paddingHorizontal: scale(16), height: scale(52) }}>
                 <TouchableOpacity onPress={() => router.back()} style={{ padding: scale(6), zIndex: 10 }}>
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
 
                 <View className="flex-row items-center" style={{ gap: scale(4), zIndex: 10 }}>
-                    <TouchableOpacity onPress={() => router.push({ pathname: '/diary-screen/editor', params: { mode: 'edit', diaryId: diary.diarySeq, origin } })} style={{ padding: scale(6) }}>
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/diary-screen/editor', params: { mode: 'edit', diaryId: diary.diaryId, origin } })} style={{ padding: scale(6) }}>
                         <Ionicons name="create-outline" size={scale(24)} color="#64748B" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={handleDelete} style={{ padding: scale(6) }}>
@@ -91,8 +99,10 @@ export default function DiaryViewerScreen() {
 
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(140), paddingTop: scale(32) }} showsVerticalScrollIndicator={false}>
                 <View className="animate-[fade-in_0.3s]">
+                    {/* 제목 및 메타 정보 */}
                     <View className="items-center" style={{ paddingHorizontal: scale(28), marginBottom: scale(32) }}>
-                        <Text className="font-extrabold text-primary-600 dark:text-primary-400 uppercase tracking-widest" style={{ marginBottom: scale(16), fontSize: scale(13) }} allowFontScaling={false}>
+                        {/* ✨ 날짜 텍스트를 primary-500으로 변경! */}
+                        <Text className="font-extrabold text-primary-500 uppercase tracking-widest" style={{ marginBottom: scale(16), fontSize: scale(13) }} allowFontScaling={false}>
                             {format(headerDateObj, "yyyy년 M월 d일 EEEE", { locale: ko })}
                         </Text>
                         <Text className="font-extrabold text-slate-900 dark:text-white text-center" style={{ fontSize: scale(28), lineHeight: scale(42), marginBottom: scale(24), letterSpacing: scale(-0.5) }} allowFontScaling={false}>
@@ -102,7 +112,8 @@ export default function DiaryViewerScreen() {
                             <View className="flex-row flex-wrap justify-center" style={{ gap: scale(8) }}>
                                 {diary.tags.map((tag: any, idx: number) => (
                                     <View key={idx} className="bg-primary-50 dark:bg-primary-900/40 rounded-md border border-primary-100/50 dark:border-primary-800/50" style={{ paddingHorizontal: scale(12), paddingVertical: scale(6) }}>
-                                        <Text className="text-primary-600 dark:text-primary-300 font-extrabold uppercase tracking-wider" style={{ fontSize: scale(11) }} allowFontScaling={false}>
+                                        {/* ✨ 해시태그 텍스트를 primary-500으로 변경! */}
+                                        <Text className="text-primary-500 dark:text-primary-300 font-extrabold uppercase tracking-wider" style={{ fontSize: scale(11) }} allowFontScaling={false}>
                                             #{typeof tag === 'string' ? tag : tag.name}
                                         </Text>
                                     </View>
@@ -110,6 +121,8 @@ export default function DiaryViewerScreen() {
                             </View>
                         )}
                     </View>
+
+                    {/* 이미지 갤러리 */}
                     {hasImages && (
                         <View className="shadow-sm" style={{ paddingHorizontal: scale(20), marginBottom: scale(32) }}>
                             {diary.imageUrl ? (
@@ -124,6 +137,8 @@ export default function DiaryViewerScreen() {
                             )}
                         </View>
                     )}
+
+                    {/* 본문 내용 */}
                     <View style={{ paddingHorizontal: scale(28), marginBottom: scale(48) }}>
                         <Text className="text-slate-700 dark:text-slate-300 font-medium text-left" style={{ fontSize: scale(16), lineHeight: scale(32) }} allowFontScaling={false}>
                             {diary.content}
@@ -132,19 +147,19 @@ export default function DiaryViewerScreen() {
                 </View>
             </ScrollView>
 
-            {/* ✨ 채팅방 이동 버튼 (sessionSeq를 들고 새 페이지로 push!) */}
+            {/* ✨ 채팅방 이동 플로팅 버튼(FAB) 배경색을 primary-500으로 변경! */}
             <View className="absolute z-50" style={{ bottom: scale(40), right: scale(24) }}>
                 <TouchableOpacity
                     onPress={() => {
-                        if (diary.sessionSeq) {
-                            router.push({ pathname: '/diary-screen/chat-history', params: { sessionSeq: diary.sessionSeq } });
+                        if (diary.sessionId) {
+                            router.push({ pathname: '/diary-screen/chat-history', params: { sessionId: diary.sessionId } });
                         } else {
                             Alert.alert("알림", "이 일기에는 버디와 나눈 대화가 없습니다.");
                         }
                     }}
                     activeOpacity={0.8}
                     style={[fabShadow, { width: scale(56), height: scale(56) }]}
-                    className="bg-primary-600 rounded-full items-center justify-center transition-colors"
+                    className="bg-primary-500 rounded-full items-center justify-center transition-colors"
                 >
                     <Ionicons name="chatbubbles" size={scale(26)} color="white" />
                 </TouchableOpacity>

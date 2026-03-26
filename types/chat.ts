@@ -1,6 +1,6 @@
 // 1. 채팅 메시지 하나
 export interface ChatMessage {
-    messageSeq: number;
+    messageId: number;
     role: "USER" | "ASSISTANT" | string;
     content: string;
     createdAt: string;
@@ -8,19 +8,19 @@ export interface ChatMessage {
 
 // 2. 메시지 보낼 때 (요청)
 export interface SendMessageRequest {
-    sessionSeq: number; // ✨ 통일 완료
+    sessionId: number; // ✨ 통일 완료
     content: string;
 }
 
 // 3. 메시지 보내기 응답 (중요: 명세서의 result 구조와 일치)
 export interface SendMessageResponse {
-    sessionSeq: number; // ✨ sessionId 삭제 및 타입 고정
+    sessionId: number; // ✨ sessionId 삭제 및 타입 고정
     message: ChatMessage; // ✨ 메시지 객체가 별도로 들어옴
 }
 
 // 4. 대화 내역 조회 응답 (추가: 명세서의 result 구조)
 export interface ChatHistoryResponse {
-    sessionSeq: number;
-    characterSeq: number;
+    sessionId: number;
+    characterId: number;
     messages: ChatMessage[];
 }

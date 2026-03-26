@@ -11,12 +11,12 @@ module.exports = {
 
   safelist: [
     'theme-default',
-    'theme-violet',
     'theme-rose',
     'theme-blue',
     'theme-green',
+    'theme-yellow', // ✨ 이거 꼭 바꿔주세요!
   ],
-
+  
   theme: {
     extend: {
       colors: {

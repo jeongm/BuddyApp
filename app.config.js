@@ -1,0 +1,127 @@
+module.exports = {
+    expo: {
+        name: "하루버디",
+        slug: "BuddyApp-v1",
+        version: "1.0.0",
+        orientation: "portrait",
+        icon: "./assets/images/icon-ios.png",
+        scheme: "com.buddylabs.buddy",
+        userInterfaceStyle: "automatic",
+        newArchEnabled: true,
+        ios: {
+            icon: "./assets/images/icon-ios.png",
+            supportsTablet: true,
+            bundleIdentifier: "com.buddylabs.buddy",
+            googleServicesFile: "./GoogleService-Info.plist",
+            infoPlist: {
+                LSApplicationQueriesSchemes: [
+                    "kakaotalk",
+                    "kakaokompassauth",
+                    "kakaolink",
+                    "kakaotollgate",
+                    "naversearchapp", // ✅ 추가
+                    "naver"
+                ],
+                CFBundleURLTypes: [
+                    {
+                        CFBundleURLSchemes: [
+                            "com.googleusercontent.apps.558616630470-fef57mvgtffu8c5v3l9mr1ll6tatvem6"
+                        ]
+                    }
+                ]
+            }
+        },
+        android: {
+            icon: "./assets/images/icon-android.png",
+            softwareKeyboardLayoutMode: "resize",
+            adaptiveIcon: {
+                foregroundImage: "./assets/images/icon-android.png",
+                backgroundColor: "#FFFFFF"
+            },
+            edgeToEdgeEnabled: true,
+            predictiveBackGestureEnabled: false,
+            permissions: [
+                "android.permission.RECORD_AUDIO"
+            ],
+            package: "com.buddylabs.buddy",
+            googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+            // ✅ [추가] 안드로이드에서 카카오/네이버 앱 스킴 인식용
+            intentFilters: [
+                {
+                    action: "VIEW",
+                    data: [{ scheme: "kakaokompassauth" }],
+                    category: ["BROWSABLE", "DEFAULT"]
+                }
+            ]
+        },
+        web: {
+            output: "static",
+            favicon: "./assets/images/favicon.png"
+        },
+        plugins: [
+            "expo-router",
+            [
+                "expo-speech-recognition",
+                {
+                    microphonePermission: "버디와 목소리로 대화하기 위해 마이크 접근 권한이 필요합니다.",
+                    speechRecognitionPermission: "사용자의 목소리를 텍스트로 변환하기 위해 음성 인식 권한이 필요합니다."
+                }
+            ],
+            "expo-notifications",
+            [
+                "expo-splash-screen",
+                {
+                    image: "./assets/images/splash-icon.png",
+                    imageWidth: 200,
+                    resizeMode: "contain",
+                    backgroundColor: "#ffffff",
+                    dark: {
+                        backgroundColor: "#000000"
+                    }
+                }
+            ],
+            [
+                "expo-image-picker",
+                {
+                    photosPermission: "일기에 사진을 첨부하기 위해 사진첩 접근 권한이 필요합니다."
+                }
+            ],
+            "@react-native-community/datetimepicker",
+            "expo-secure-store",
+            "expo-web-browser",
+            "expo-font",
+            "@react-native-google-signin/google-signin",
+            [
+                "expo-build-properties",
+                {
+                    android: {
+                        kotlinVersion: "2.0.20",
+                        extraMavenRepos: [
+                            "https://www.jitpack.io"
+                        ],
+                        enableJetifier: true,
+                        packagingOptions: {
+                            pickFirsts: [
+                                "META-INF/androidx.appcompat_appcompat.version",
+                                "META-INF/*"
+                            ]
+                        }
+                    }
+                }
+            ],
+            "./fix-manifest-plugin.js",
+            "./fix-duplicate-classes-plugin.js",
+            "./fix-packaging-plugin.js"
+        ],
+        experiments: {
+            typedRoutes: true,
+            reactCompiler: false
+        },
+        extra: {
+            router: {},
+            eas: {
+                projectId: "1358a67a-67fc-4798-ac95-05d0de3f1441"
+            }
+        }
+    }
+};

@@ -26,11 +26,12 @@ export default function EditNicknameScreen() {
     const [nicknameInput, setNicknameInput] = useState(user?.nickname || "");
     const [isSaving, setIsSaving] = useState(false);
 
+    // [통신] 닉네임 변경 저장
     const handleSaveNickname = async () => {
         const trimmedInput = nicknameInput.trim();
         if (!trimmedInput) return Alert.alert("알림", "닉네임을 입력해주세요.");
         if (trimmedInput === user?.nickname) {
-            router.back(); // 변경사항 없으면 그냥 뒤로가기
+            router.back();
             return;
         }
 
@@ -38,7 +39,7 @@ export default function EditNicknameScreen() {
         try {
             await memberApi.updateNickname(trimmedInput);
             updateUserInfo({ nickname: trimmedInput });
-            router.back(); // ✨ 성공 시 네이티브하게 이전 화면으로 복귀!
+            router.back();
         } catch (error) {
             Alert.alert("알림", "닉네임 변경에 실패했습니다.");
         } finally {
@@ -48,8 +49,9 @@ export default function EditNicknameScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
+
+            {/* 헤더 영역 */}
             <View className="flex-row items-center justify-between px-4 py-3 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-20 border-b border-slate-100 dark:border-slate-800/60">
-                {/* 뒤로가기 버튼 */}
                 <TouchableOpacity onPress={() => router.back()} className="p-2" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
@@ -62,6 +64,8 @@ export default function EditNicknameScreen() {
             </View>
 
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(100), paddingTop: scale(32) }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+                {/* 상단 안내 문구 */}
                 <View className="px-6 mb-8">
                     <Text className="text-slate-900 dark:text-white font-black mb-2 leading-tight" style={{ fontSize: scale(22) }} allowFontScaling={false}>
                         버디가 불러줄{"\n"}새로운 이름을 알려주세요.
@@ -71,11 +75,10 @@ export default function EditNicknameScreen() {
                     </Text>
                 </View>
 
+                {/* [UI] 입력 및 액션 영역 */}
                 <View style={{ paddingHorizontal: scale(20) }}>
-                    {/* 입력창 */}
                     <View className="flex-row items-center bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-[20px] px-5" style={[{ height: scale(60) }, safeShadow]}>
                         <TextInput
-                            // autoFocus
                             value={nicknameInput}
                             onChangeText={setNicknameInput}
                             maxLength={10}
@@ -96,12 +99,12 @@ export default function EditNicknameScreen() {
                         )}
                     </View>
 
-                    {/* 저장 버튼 (입력창 바로 아래!) */}
+                    {/* ✨ 저장 버튼 색상을 primary-500으로 변경! */}
                     <TouchableOpacity
                         onPress={handleSaveNickname}
                         activeOpacity={0.8}
                         disabled={isSaving || !nicknameInput.trim()}
-                        className={`w-full rounded-[20px] items-center justify-center mt-4 ${(!nicknameInput.trim() || isSaving) ? 'bg-slate-200 dark:bg-slate-800' : 'bg-primary-600'}`}
+                        className={`w-full rounded-[20px] items-center justify-center mt-4 ${(!nicknameInput.trim() || isSaving) ? 'bg-slate-200 dark:bg-slate-800' : 'bg-primary-500'}`}
                         style={[{ paddingVertical: scale(16) }, nicknameInput.trim() && !isSaving && safeShadow]}
                     >
                         {isSaving ? (

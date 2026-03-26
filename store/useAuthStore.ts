@@ -1,7 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ✨ [수정] 앱 저장소 임포트
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { LoginResult, Member } from '../types/auth';
+// ✨ [수정] 재호님이 보내주신 memberApi 임포트
+import { memberApi } from '../api/memberApi';
 
 interface AuthState {
   user: Member | null;
@@ -9,10 +11,12 @@ interface AuthState {
   refreshToken: string | null;
   isLoggedIn: boolean;
 
-  // 액션 함수들
   login: (data: LoginResult) => void;
   logout: () => void;
   updateUserInfo: (updatedData: Partial<Member>) => void;
+
+  // ✨ [추가] 서버 동기화 함수
+  refreshUser: () => Promise<void>;
 
   setTokens: (accessToken: string, refreshToken: string) => void;
   setUser: (user: Member) => void;
@@ -27,10 +31,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isLoggedIn: false,
 
-      // 1. 일반 로그인
       login: (data) => {
-        // ✨ [수정] localStorage.setItem 삭제!
-        // set()만 하면 persist 미들웨어가 알아서 AsyncStorage에 저장해줍니다.
         set({
           user: data.member,
           accessToken: data.accessToken,
@@ -39,37 +40,42 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      // 2. 로그아웃
       logout: () => {
-        // ✨ [수정] localStorage.removeItem 삭제 -> set으로 초기화하면 알아서 삭제됨
         set({ user: null, accessToken: null, refreshToken: null, isLoggedIn: false });
       },
 
-      // 3. 유저 정보 수정
       updateUserInfo: (updatedData) => set((state) => ({
         user: state.user ? { ...state.user, ...updatedData } : null
       })),
 
-      // 4. 토큰 설정 (OAuthCallback 용)
-      setTokens: (access, refresh) => {
-        set({
-          accessToken: access,
-          refreshToken: refresh,
-          isLoggedIn: true
-        });
+      // ✨ [구현 완료] 서버에 '나'의 최신 정보를 물어보고 업데이트함
+      refreshUser: async () => {
+        try {
+          // memberApi의 getMe() 호출
+          const response = await memberApi.getMe();
+
+          // memberApi 결과를 보면 AuthResponse<Member> 형태이므로 .result를 가져옵니다.
+          if (response.result) {
+            set({ user: response.result });
+            console.log("🔄 기기 데이터 동기화 완료:", response.result.characterNickname);
+          }
+        } catch (error) {
+          console.error("❌ 동기화 실패 (로그인 만료일 수도 있음):", error);
+        }
       },
 
-      // 5. 유저 정보 설정
+      setTokens: (access, refresh) => {
+        set({ accessToken: access, refreshToken: refresh, isLoggedIn: true });
+      },
+
       setUser: (user) => set({ user }),
 
-      // 6. 액세스 토큰만 갱신
       setAccessToken: (token) => {
         set({ accessToken: token });
       },
     }),
     {
-      name: 'auth-storage', // 저장소 키 이름
-      // ✨ [핵심 수정] localStorage -> AsyncStorage로 교체
+      name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
