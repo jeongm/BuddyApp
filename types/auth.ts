@@ -12,10 +12,10 @@ export interface AuthResponse<T> {
 export interface Member {
   refreshToken(accessToken: any, refreshToken: any): unknown;
   accessToken: any;
-  memberSeq: number;      // 기존 userSeq -> memberSeq
+  memberId: number;      // 기존 userId -> memberId
   email: string;
   nickname: string;
-  characterSeq: number;
+  characterId: number;
   characterNickname: string;
   avatarUrl: string;      // ✨ 서버가 이미지 주소도 줍니다!
 }
@@ -37,8 +37,9 @@ export interface SignupRequest {
   email: string;
   password: string;
   nickname: string;
-  characterSeq: number;
-  characterNickname: string;
+  characterId: number;
+  // characterNickname: string;
+  verificationToken: string;
 }
 
 // 회원가입 성공 시 서버가 Member 정보를 그대로 줍니다.

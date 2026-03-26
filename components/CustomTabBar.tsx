@@ -1,38 +1,32 @@
 import { BarChart3, BookOpen, Calendar, Home, Settings } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import React, { useEffect, useRef } from 'react';
-// ✨ Platform import 추가!
 import { Animated, Dimensions, Platform, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeStore } from '../store/useThemeStore';
+
+// [추가] 글로벌 테마 색상 임포트!
+import { ACCENT_HEX_COLORS, useThemeStore } from '../store/useThemeStore';
 
 const { width } = Dimensions.get('window');
 const scale = (size: number) => Math.round((width / 430) * size);
 
 export function CustomTabBar({ state, descriptors, navigation }: any) {
     const { colorScheme } = useColorScheme();
-    const isDark = colorScheme === 'dark';
     const { accent } = useThemeStore();
-
-    // 현재 기기의 실시간 안전 여백 가져오기
     const insets = useSafeAreaInsets();
+    const isDark = colorScheme === 'dark';
 
-    // ✨ 핵심 다이어트 로직: 아이폰이면 하단 여백을 14px 깎아내고, 안드로이드는 원래 여백(소프트키) 유지!
+    // [UI] 기기별 하단 안전 여백(Safe Area) 최적화
     const bottomPadding = Platform.OS === 'ios' && insets.bottom > 0
         ? insets.bottom - 14
         : insets.bottom;
 
-    const getActiveColor = () => {
-        switch (accent) {
-            case 'violet': return '#7C3AED';
-            case 'rose': return '#E11D48';
-            case 'blue': return '#2563EB';
-            case 'green': return '#16A34A';
-            default: return isDark ? '#FFFFFF' : '#0F172A';
-        }
-    };
+    // ✨ [수정] 스위치문 박멸! 
+    // 기본 테마(Soft Black)인데 다크모드일 때만 예외적으로 흰색(#FFFFFF)으로 반전!
+    const activeColor = accent === 'default' && isDark
+        ? '#FFFFFF'
+        : ACCENT_HEX_COLORS[accent];
 
-    const activeColor = getActiveColor();
     const inactiveColor = isDark ? '#475569' : '#94A3B8';
 
     const icons: any = {
@@ -44,10 +38,10 @@ export function CustomTabBar({ state, descriptors, navigation }: any) {
     };
 
     const tabsOrder = ["diary", "calendar", "home", "report", "settings"];
-
     const tabWidth = width / tabsOrder.length;
     const translateX = useRef(new Animated.Value(state.index * tabWidth)).current;
 
+    // [애니메이션] 탭 상단 이동 인디케이터 바
     useEffect(() => {
         Animated.spring(translateX, {
             toValue: state.index * tabWidth,
@@ -61,11 +55,11 @@ export function CustomTabBar({ state, descriptors, navigation }: any) {
         <View
             className="flex-row bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-300 relative"
             style={{
-                // ✨ 계산된 다이어트 여백 적용! (기본 높이는 56으로 슬림하게)
                 height: scale(56) + bottomPadding,
                 paddingBottom: bottomPadding,
             }}
         >
+            {/* 상단 포인트 인디케이터 바 */}
             <Animated.View
                 style={{
                     position: 'absolute',
@@ -89,6 +83,7 @@ export function CustomTabBar({ state, descriptors, navigation }: any) {
                 />
             </Animated.View>
 
+            {/* 탭 아이콘 렌더링 */}
             {tabsOrder.map((routeName) => {
                 const route = state.routes.find((r: any) => r.name === routeName);
                 if (!route) return null;

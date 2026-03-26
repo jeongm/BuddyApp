@@ -1,23 +1,34 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Text } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// ✨ 1. 직접 통신 대신 만들어둔 oauthApi를 가져옵니다!
 import { oauthApi } from '../../api/authApi';
+import { AppText as Text } from '../../components/AppText';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function OAuthCallbackScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ mode: string; key: string; email?: string; provider?: string }>();
+    const rawParams = useLocalSearchParams();
     const { setTokens, setUser } = useAuthStore();
+    const { setColorScheme } = useNativeWindColorScheme();
+
+    const mode = Array.isArray(rawParams.mode) ? rawParams.mode[0] : rawParams.mode;
+    const key = Array.isArray(rawParams.key) ? rawParams.key[0] : rawParams.key;
+    const email = Array.isArray(rawParams.email) ? rawParams.email[0] : rawParams.email;
+    const provider = Array.isArray(rawParams.provider) ? rawParams.provider[0] : rawParams.provider;
 
     const isProcessed = useRef(false);
     const [statusText, setStatusText] = useState("로그인 정보를 확인하고 있어요...");
 
+    // ✅ [추가] 라이트 모드 강제
+    useFocusEffect(useCallback(() => {
+        setColorScheme('light');
+        return () => setColorScheme('system');
+    }, []));
+
     useEffect(() => {
         if (isProcessed.current) return;
-
-        const { mode, key, email, provider } = params;
 
         if (!mode || !key) {
             Alert.alert("오류", "잘못된 접근입니다.");
@@ -28,20 +39,21 @@ export default function OAuthCallbackScreen() {
         isProcessed.current = true;
 
         if (mode === 'success') {
-            handleSuccess(key);
+            handleSuccess(key, provider || "UNKNOWN");
         } else if (mode === 'link') {
             handleLink(key, email, provider);
         } else {
             Alert.alert("오류", "알 수 없는 요청입니다.");
             router.replace('/');
         }
-    }, [params]);
+    }, [mode, key, email, provider]);
 
-    // ✨ 1. 일반 성공 케이스 (신규 가입 or 기존 유저)
-    const handleSuccess = async (key: string) => {
+    const handleSuccess = async (authKey: string, authProvider: string) => {
         try {
-            // 🚨 2. axios 직접 호출 대신 oauthApi.getSocialToken 사용!
-            const response = await oauthApi.getSocialToken(key);
+            const response = await oauthApi.loginWithSocialToken({
+                provider: authProvider,
+                token: authKey
+            });
             const result = response.result || response;
             processLoginSuccess(result);
         } catch (error) {
@@ -51,13 +63,12 @@ export default function OAuthCallbackScreen() {
         }
     };
 
-    // ✨ 2. 연동 필요 케이스
-    const handleLink = (key: string, email?: string, provider?: string) => {
+    const handleLink = (authKey: string, authEmail?: string, authProvider?: string) => {
         setStatusText("계정 연동을 대기 중입니다...");
 
         Alert.alert(
             "계정 연동 안내",
-            `이미 ${email || '다른 방식'}으로 가입된 계정이 있습니다.\n${provider || '이 소셜'} 로그인을 연동하시겠습니까?`,
+            `이미 ${authEmail || '다른 방식'}으로 가입된 계정이 있습니다.\n${authProvider || '이 소셜'} 로그인을 연동하시겠습니까?`,
             [
                 {
                     text: "취소",
@@ -69,8 +80,7 @@ export default function OAuthCallbackScreen() {
                     onPress: async () => {
                         setStatusText("계정을 연동하고 있어요...");
                         try {
-                            // 🚨 3. 잘못된 주소 직접 호출 대신 oauthApi.linkSocialAccount 사용!
-                            const response = await oauthApi.linkSocialAccount(key);
+                            const response = await oauthApi.linkSocialAccount(authKey);
                             const result = response.result || response;
                             processLoginSuccess(result);
                         } catch (error) {
@@ -84,26 +94,24 @@ export default function OAuthCallbackScreen() {
         );
     };
 
-    // ✨ 공통 로직: 토큰 저장 및 characterSeq 기반 라우팅
     const processLoginSuccess = (result: any) => {
         const { accessToken, refreshToken, member } = result;
-
         setTokens(accessToken, refreshToken);
         if (member) setUser(member);
 
-        if (member?.characterSeq === null || member?.characterSeq === undefined) {
-            // 🐣 신규 유저 -> 캐릭터 선택 화면
-            router.replace('/auth/character-select');
+        if (!member?.nickname || !member?.characterId) {
+            router.replace('/auth/terms?mode=social');
         } else {
-            // 🏠 기존 유저 -> 메인 홈
             router.replace('/(tabs)/home');
         }
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950 items-center justify-center">
+        // ✅ [수정] dark: 클래스 제거
+        <SafeAreaView className="flex-1 bg-white items-center justify-center">
             <ActivityIndicator size="large" color="#64748B" />
-            <Text className="mt-6 font-bold text-slate-600 dark:text-slate-300 text-[15px]" allowFontScaling={false}>
+            // ✅ [수정] Text → AppText로 교체, dark: 클래스 제거
+            <Text className="mt-6 font-bold text-slate-600 text-[15px]" allowFontScaling={false}>
                 {statusText}
             </Text>
         </SafeAreaView>

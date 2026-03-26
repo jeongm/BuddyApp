@@ -11,15 +11,15 @@ export const chatApi = {
     },
 
     // 2. 대화 내역 조회
-    getChatHistory: async (sessionSeq: number) => {
+    getChatHistory: async (sessionId: number) => {
         // ✨ 반환 타입을 ChatHistoryResponse로 변경
-        const response = await authApi.get<AuthResponse<ChatHistoryResponse>>(`/api/v1/chats/${sessionSeq}`);
+        const response = await authApi.get<AuthResponse<ChatHistoryResponse>>(`/api/v1/chats/${sessionId}`);
         return response.data;
     },
 
     // 3. 대화 종료
-    endChatSession: async (sessionSeq: number) => {
-        const response = await authApi.patch<AuthResponse<string>>(`/api/v1/chats/${sessionSeq}/end`);
+    endChatSession: async (sessionId: number) => {
+        const response = await authApi.patch<AuthResponse<string>>(`/api/v1/chats/${sessionId}/end`);
         return response.data;
     },
 };

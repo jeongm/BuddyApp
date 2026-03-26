@@ -4,102 +4,93 @@
 
 @layer base {
 
-    /* ◼️ DEFAULT (Monochrome - 극강의 미니멀리즘) */
+    /* ◼️ THEME: DEFAULT (Midnight Black) */
+    /* 라이트 모드에서는 시크한 블랙(#18181B)이 주연! */
+    /* ◼️ THEME: DEFAULT (Soft Black) */
     :root {
         --background: #ffffff;
-        --foreground: #020617;
-
-        /* 기본 모노톤 (Light) */
-        --color-primary-50: 248 250 252;
-        /* slate-50 */
-        --color-primary-100: 241 245 249;
-        --color-primary-200: 226 232 240;
-        --color-primary-300: 203 213 225;
-        --color-primary-400: 148 163 184;
-        --color-primary-500: 100 116 139;
-        --color-primary-600: 15 23 42;
-        /* 메인 버튼: Black (slate-900) */
-        --color-primary-700: 2 6 23;
+        --foreground: #27272A;
+        --color-primary-50: 244 244 245;  
+        --color-primary-100: 228 228 231; 
+        --color-primary-200: 212 212 216; 
+        --color-primary-300: 161 161 170; 
+        --color-primary-400: 113 113 122; 
+        --color-primary-500: 39 39 42;    /* ✨ zinc-800 (#27272A) - 아주 살짝 연해진 소프트 블랙! */
+        --color-primary-600: 24 24 27;    /* ✨ zinc-900 */
+        --color-primary-700: 9 9 11;      
         --color-primary-800: 0 0 0;
         --color-primary-900: 0 0 0;
     }
 
-    /* 다크모드일 때 모노톤 색상 자동 반전 */
+    /* 🌙 다크 모드일 때는 주연이 화이트(#FFFFFF)로 반전되어 완벽한 대비를 줍니다 */
     .dark {
-        --background: #020617;
-        --foreground: #ffffff;
-
-        --color-primary-50: 30 41 59;
-        /* slate-800 */
-        --color-primary-100: 51 65 85;
-        --color-primary-200: 71 85 105;
-        --color-primary-300: 148 163 184;
-        --color-primary-400: 203 213 225;
-        --color-primary-500: 226 232 240;
-        --color-primary-600: 255 255 255;
-        /* 메인 버튼: White 반전 */
-        --color-primary-700: 248 250 252;
-        --color-primary-800: 241 245 249;
-        --color-primary-900: 226 232 240;
+        --background: #09090b;
+        --foreground: #fafafa;
+        --color-primary-50: 39 39 42;     /* zinc-800 */
+        --color-primary-100: 63 63 70;    /* zinc-700 */
+        --color-primary-200: 82 82 91;    /* zinc-600 */
+        --color-primary-300: 113 113 122; /* zinc-500 */
+        --color-primary-400: 161 161 170; /* zinc-400 */
+        --color-primary-500: 255 255 255; /* white (#FFFFFF) - Main Accent */
+        --color-primary-600: 228 228 231; /* zinc-200 */
+        --color-primary-700: 212 212 216; /* zinc-300 */
+        --color-primary-800: 161 161 170; /* zinc-400 */
+        --color-primary-900: 113 113 122; /* zinc-500 */
     }
 
-    /* 🪻 THEME: VIOLET (시그니처 보라색) */
-    .theme-violet {
-        --color-primary-50: 245 243 255;
-        --color-primary-100: 237 233 254;
-        --color-primary-200: 221 214 254;
-        --color-primary-300: 196 181 253;
-        --color-primary-400: 167 139 250;
-        --color-primary-500: 139 92 246;
-        --color-primary-600: 124 58 237;
-        /* violet-600 */
-        --color-primary-700: 109 40 217;
-        --color-primary-800: 91 33 182;
-        --color-primary-900: 76 29 149;
-    }
-
-    /* 🌹 THEME: ROSE (로즈 핑크) */
+    /* 🌹 THEME: ROSE (코랄 로즈 - 유지) */
     .theme-rose {
         --color-primary-50: 255 241 242;
         --color-primary-100: 255 228 230;
         --color-primary-200: 254 205 211;
         --color-primary-300: 253 164 175;
         --color-primary-400: 251 113 133;
-        --color-primary-500: 244 63 94;
-        --color-primary-600: 225 29 72;
-        /* rose-600 */
-        --color-primary-700: 190 18 60;
-        --color-primary-800: 159 18 57;
-        --color-primary-900: 136 19 55;
+        --color-primary-500: 251 113 133; /* rose-400 (#FB7185) */
+        --color-primary-600: 244 63 94;
+        --color-primary-700: 225 29 72;
+        --color-primary-800: 190 18 60;
+        --color-primary-900: 159 18 57;
     }
 
-    /* 🌊 THEME: BLUE (오션 블루) */
+    /* 🌊 THEME: BLUE (세레니티 블루 - 유지) */
     .theme-blue {
         --color-primary-50: 239 246 255;
         --color-primary-100: 219 234 254;
         --color-primary-200: 191 219 254;
         --color-primary-300: 147 197 253;
         --color-primary-400: 96 165 250;
-        --color-primary-500: 59 130 246;
-        --color-primary-600: 37 99 235;
-        /* blue-600 */
-        --color-primary-700: 29 78 216;
-        --color-primary-800: 30 64 175;
-        --color-primary-900: 30 58 138;
+        --color-primary-500: 96 165 250;  /* blue-400 (#60A5FA) */
+        --color-primary-600: 59 130 246;
+        --color-primary-700: 37 99 235;
+        --color-primary-800: 29 78 216;
+        --color-primary-900: 30 64 175;
     }
 
-    /* 🍃 THEME: GREEN (포레스트 그린) */
+    /* 🍃 THEME: GREEN (포레스트 그린/세이지 - 톤다운 적용!) */
     .theme-green {
-        --color-primary-50: 240 253 244;
-        --color-primary-100: 220 252 231;
-        --color-primary-200: 187 247 208;
-        --color-primary-300: 134 239 172;
-        --color-primary-400: 74 222 128;
-        --color-primary-500: 34 197 94;
-        --color-primary-600: 22 163 74;
-        /* green-600 */
-        --color-primary-700: 21 128 61;
-        --color-primary-800: 22 101 52;
-        --color-primary-900: 20 83 45;
+        --color-primary-50: 236 253 245;  /* emerald-50 */
+        --color-primary-100: 209 250 229; /* emerald-100 */
+        --color-primary-200: 167 243 208; /* emerald-200 */
+        --color-primary-300: 110 231 183; /* emerald-300 */
+        --color-primary-400: 16 185 129;  /* emerald-500 */
+        --color-primary-500: 5 150 105;   /* emerald-600 (#059669) - Main Accent */
+        --color-primary-600: 4 120 87;    /* emerald-700 */
+        --color-primary-700: 6 95 70;     /* emerald-800 */
+        --color-primary-800: 6 78 59;     /* emerald-900 */
+        --color-primary-900: 2 44 34;     /* emerald-950 */
+    }
+
+    /* ☀️ THEME: YELLOW (선셋 망고/오렌지 - 시인성 폭발!) */
+    .theme-yellow {
+        --color-primary-50: 255 247 237;  /* orange-50 */
+        --color-primary-100: 255 237 213; /* orange-100 */
+        --color-primary-200: 254 215 170; /* orange-200 */
+        --color-primary-300: 253 186 116; /* orange-300 */
+        --color-primary-400: 251 146 60;  /* orange-400 */
+        --color-primary-500: 249 115 22;  /* orange-500 (#F97316) - Main Accent */
+        --color-primary-600: 234 88 12;   /* orange-600 */
+        --color-primary-700: 194 65 12;   /* orange-700 */
+        --color-primary-800: 154 52 18;   /* orange-800 */
+        --color-primary-900: 124 45 18;   /* orange-900 */
     }
 }

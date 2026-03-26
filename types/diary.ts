@@ -3,7 +3,7 @@
 // 1. 일기 목록 조회용 (CalendarPage, HomePage 리스트)
 export interface DiarySummary {
     thumbnailUrl: any;
-    diarySeq: number;
+    diaryId: number;
     title: string;
     summary: string;
     createAt: string; // 리스트에서는 createAt 사용
@@ -15,7 +15,7 @@ export interface DiarySummary {
     diaryDate?: string;
     createdAt?: string;
 
-    tags?: string[] | { tagSeq: number; name: string }[];
+    tags?: string[] | { tagId: number; name: string }[];
     images?: { url: string }[] | string[];
     thumbnail?: string;
     imageUrl?: string;
@@ -23,7 +23,7 @@ export interface DiarySummary {
 
 // ✨ 2. 일기 상세 조회용 (DiaryViewPage 뷰어) - JSON 명세 반영
 export interface DiaryDetail {
-    diarySeq: number;
+    diaryId: number;
     title: string;
     content: string;
 
@@ -31,9 +31,9 @@ export interface DiaryDetail {
     diaryDate: string;  // "2026-02-05" (필수)
     createdAt: string;  // "2026-02-05T03:17:34..." (필수)
 
-    // 태그 (JSON: [{ tagSeq: 79, name: "분노" }, ...])
+    // 태그 (JSON: [{ tagId: 79, name: "분노" }, ...])
     tags: {
-        tagSeq: number;
+        tagId: number;
         name: string;
     }[];
 
@@ -41,7 +41,7 @@ export interface DiaryDetail {
     imageUrl?: string;
 
     // 세션 정보
-    sessionSeq?: number;
+    sessionId?: number;
 
     // 레거시 호환용 (혹시 몰라 남겨둠)
     createAt?: string;
@@ -55,5 +55,5 @@ export interface CreateDiaryRequest {
     diaryDate?: string;
     imageUrl?: string;
     tags: string[];
-    sessionSeq?: number; // ✨ [추가!] 백엔드에 채팅방 번호를 넘겨주기 위해 필수!
+    sessionId?: number; // ✨ [추가!] 백엔드에 채팅방 번호를 넘겨주기 위해 필수!
 }

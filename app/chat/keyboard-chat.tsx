@@ -2,8 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Dimensions, KeyboardAvoidingView, Modal, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+// ✨ 1. Keyboard 모듈 추가!
+import { Alert, Dimensions, Keyboard, KeyboardAvoidingView, Modal, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+// ✨ 2. useSafeAreaInsets 추가!
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatApi } from "../../api/chatApi";
 import { AppText as Text } from '../../components/AppText';
 import { useAuthStore } from "../../store/useAuthStore";
@@ -33,12 +35,12 @@ interface Message {
 export default function KeyboardChatScreen() {
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
+
+    // ✨ 기기별 하단 네비게이션바(소프트키) 여백 가져오기
+    const insets = useSafeAreaInsets();
+
     const { user } = useAuthStore();
-
-    // ✨ Zustand 스토어 변수명은 유지해도 됩니다 (내부적으로 쓰는 이름이니까요).
-    // 하지만 API와 라우터로 보낼 때는 sessionSeq라는 이름으로 포장해서 보낼 겁니다.
     const { sessionId, setSessionId } = useChatStore();
-
     const { fontFamily } = useSettingStore();
     const customFontFamily = fontFamily === 'System' ? undefined : fontFamily;
 
@@ -47,23 +49,41 @@ export default function KeyboardChatScreen() {
 
     const getProfileImage = (seq?: number): any => {
         switch (seq) {
-            case 1: return require('../../assets/images/characters/Hamster.png');
-            case 2: return require('../../assets/images/characters/Fox.png');
-            case 3: return require('../../assets/images/characters/Bear.png');
-            default: return require('../../assets/images/characters/Hamster.png');
+            case 1: return require('../../assets/images/characters/Hamster.webp');
+            case 2: return require('../../assets/images/characters/Fox.webp');
+            case 3: return require('../../assets/images/characters/Bear.webp');
+            default: return require('../../assets/images/characters/Hamster.webp');
         }
     };
-    const currentProfileImg = getProfileImage(user?.characterSeq);
+    const currentProfileImg = getProfileImage(user?.characterId);
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState("");
     const [isTyping, setIsTyping] = useState(false);
-
-    // ✨ 불필요한 isEnding 상태 삭제 (로딩 팝업은 에디터가 띄울 거니까요!)
     const [showExitPopup, setShowExitPopup] = useState(false);
+
+    // ✨ 3. 안드로이드 키보드 억까 방어용 상태값
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
     const isEndingRef = useRef(false);
     const hasFetchedHistory = useRef(false);
+
+    // ✨ 4. 안드로이드 키보드 높이 실시간 감지 마법사
+    useEffect(() => {
+        if (Platform.OS === 'android') {
+            const showSubscription = Keyboard.addListener('keyboardDidShow', (e) => {
+                setKeyboardHeight(e.endCoordinates.height);
+            });
+            const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+                setKeyboardHeight(0);
+            });
+
+            return () => {
+                showSubscription.remove();
+                hideSubscription.remove();
+            };
+        }
+    }, []);
 
     useEffect(() => {
         if (hasFetchedHistory.current) return;
@@ -75,13 +95,12 @@ export default function KeyboardChatScreen() {
                 return;
             }
             try {
-                // ✨ API 명세에 맞춰서 요청 (만약 백엔드가 여기서도 sessionSeq를 요구한다면 맞춰야 합니다)
                 const res = await chatApi.getChatHistory(sessionId);
                 const resultData = res?.result as any;
 
                 if (resultData?.messages && Array.isArray(resultData.messages)) {
                     const formattedMessages: Message[] = resultData.messages.map((item: any) => ({
-                        id: item.messageSeq || Math.random(),
+                        id: item.messageId || Math.random(),
                         text: item.content,
                         sender: (item.role || "").toUpperCase() === "USER" ? "user" : "character",
                         timestamp: new Date(item.createdAt)
@@ -115,20 +134,18 @@ export default function KeyboardChatScreen() {
 
         try {
             const requestSessionId = sessionId === 0 ? 0 : sessionId;
-            // ✨ [수정 완료] 백엔드가 요구하는 sessionSeq 로 확실히 매핑!
-            const response = await chatApi.sendMessage({ sessionSeq: requestSessionId, content: userText });
-
+            const response = await chatApi.sendMessage({ sessionId: requestSessionId, content: userText });
             const resultData = response.result as any;
 
-            const newSessionSeq = resultData?.sessionSeq;
-            if (newSessionSeq && newSessionSeq !== sessionId) {
-                setSessionId(newSessionSeq);
+            const newsessionId = resultData?.sessionId;
+            if (newsessionId && newsessionId !== sessionId) {
+                setSessionId(newsessionId);
             }
 
             const aiMsg = resultData?.message;
             if (aiMsg) {
                 setMessages((prev) => [...prev, {
-                    id: aiMsg.messageSeq || Date.now() + 1,
+                    id: aiMsg.messageId || Date.now() + 1,
                     text: aiMsg.content,
                     sender: "character",
                     timestamp: new Date(aiMsg.createdAt)
@@ -142,7 +159,6 @@ export default function KeyboardChatScreen() {
         }
     };
 
-    // ✨ 대망의 매직 트릭 발동 함수!
     const handleWriteDiary = async () => {
         if (isEndingRef.current) return;
 
@@ -151,11 +167,10 @@ export default function KeyboardChatScreen() {
             return;
         }
 
-        // ✨ 팝업 띄우지 않고 꼬리표 붙여서 즉시 에디터로 토스!
         router.push({
             pathname: '/diary-screen/editor',
             params: {
-                sessionSeq: sessionId, // ✨ [수정 완료] 넘길 때도 sessionSeq라는 이름표 달기!
+                sessionId: sessionId,
                 mode: 'create',
                 origin: 'chat'
             }
@@ -179,7 +194,7 @@ export default function KeyboardChatScreen() {
         setShowExitPopup(false);
         if (sessionId !== 0) {
             try {
-                await chatApi.endChatSession(sessionId); // 여기도 백엔드가 sessionSeq를 요구한다면 맞춰주셔야 합니다!
+                await chatApi.endChatSession(sessionId);
             } catch (e) {
                 console.error("세션 종료 실패", e);
             }
@@ -244,6 +259,7 @@ export default function KeyboardChatScreen() {
                     contentContainerStyle={{ paddingBottom: scale(20), paddingTop: scale(24), paddingHorizontal: scale(16) }}
                     onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                     onLayout={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+                    keyboardShouldPersistTaps="handled"
                 >
                     {messages.map((msg) => {
                         const isMe = msg.sender === "user";
@@ -292,7 +308,8 @@ export default function KeyboardChatScreen() {
                     className="bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-900/50"
                     style={{
                         paddingTop: scale(Platform.OS === 'ios' ? 16 : 12),
-                        paddingBottom: scale(Platform.OS === 'ios' ? 24 : 16),
+                        // ✨ 5. 키보드가 닫혀있을 때 하단 네비게이션바(소프트키)랑 겹치지 않게 여백 챙겨주기!
+                        paddingBottom: Platform.OS === 'ios' ? scale(24) : Math.max(scale(16), insets.bottom + scale(8)),
                         paddingHorizontal: scale(16)
                     }}
                 >
@@ -329,8 +346,6 @@ export default function KeyboardChatScreen() {
                                 }`}
                             style={{ width: scale(44), height: scale(44) }}
                         >
-                            {/* ✨ arrow-up을 종이비행기(send)로 교체! */}
-                            {/* 팁: 종이비행기 아이콘은 시각적으로 살짝 왼쪽으로 치우쳐 보여서, marginLeft를 살짝 주면 정중앙에 있는 것처럼 완벽해집니다. */}
                             <Ionicons
                                 name="send"
                                 size={scale(18)}
@@ -343,7 +358,7 @@ export default function KeyboardChatScreen() {
 
             </KeyboardAvoidingView>
 
-            {/* ✨ 나가기 경고 팝업 (로딩 팝업은 에디터로 이사갔음!) */}
+            {/* 나가기 경고 팝업 */}
             <Modal
                 visible={showExitPopup}
                 transparent={true}
@@ -362,7 +377,6 @@ export default function KeyboardChatScreen() {
                             </Text>
                         </View>
 
-                        {/* 좌우 배치 (flex-row) */}
                         <View className="flex-row" style={{ gap: scale(8) }}>
                             <TouchableOpacity
                                 onPress={handleDiscardSession}
@@ -386,10 +400,18 @@ export default function KeyboardChatScreen() {
                                 </RNText>
                             </TouchableOpacity>
                         </View>
-
                     </View>
                 </View>
             </Modal>
+
+            {/* ✨ 6. 대망의 매직 트릭: 안드로이드 키보드가 올라올 때, 그 높이만큼 바닥에서부터 투명 블록을 세워서 입력창을 밀어올립니다! */}
+            {Platform.OS === 'android' && (
+                <View style={{
+                    height: keyboardHeight > 0
+                        ? Math.max(0, keyboardHeight - (keyboardHeight > 100 ? 0 : insets.bottom))
+                        : 0
+                }} />
+            )}
         </SafeAreaView>
     );
 }

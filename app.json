@@ -1,33 +1,47 @@
 {
   "expo": {
-    "name": "BuddyApp-v1",
+    "name": "하루버디",
     "slug": "BuddyApp-v1",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "buddyappv1",
+    "scheme": "com.buddylabs.buddy",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "usesAppleSignIn": true,
       "supportsTablet": true,
+      "bundleIdentifier": "com.buddylabs.buddy",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "kakaotalk",
           "kakaokompassauth",
           "kakaolink",
           "kakaotollgate"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.558616630470-fef57mvgtffu8c5v3l9mr1ll6tatvem6"
+            ]
+          }
         ]
       }
     },
     "android": {
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.buddylabs.buddy",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -35,6 +49,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "@react-native-voice/voice",
+        {
+          "microphonePermission": "버디와 목소리로 대화하기 위해 마이크 접근 권한이 필요합니다.",
+          "speechRecognitionPermission": "사용자의 목소리를 텍스트로 변환하기 위해 음성 인식 권한이 필요합니다."
+        }
+      ],
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
@@ -56,11 +78,40 @@
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.20",
+            "extraMavenRepos": [
+              "https://www.jitpack.io"
+            ],
+            "enableJetifier": true,
+            "packagingOptions": {
+              "pickFirsts": [
+                "META-INF/androidx.appcompat_appcompat.version",
+                "META-INF/*"
+              ]
+            }
+          }
+        }
+      ],
+      "./fix-manifest-plugin.js",
+      "./fix-duplicate-classes-plugin.js",
+      "./fix-packaging-plugin.js"
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1358a67a-67fc-4798-ac95-05d0de3f1441"
+      }
     }
   }
 }

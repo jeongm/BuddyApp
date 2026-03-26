@@ -1,17 +1,29 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import 'expo-dev-client';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme as useTailwindColorScheme } from 'nativewind';
 import "../global.css";
+import { useAuthStore } from '../store/useAuthStore'; // ✅ 추가
 import { useThemeStore } from '../store/useThemeStore';
 
-// ✨ 폰트 라이브러리 추가
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+
+import { LogBox } from 'react-native';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+
+LogBox.ignoreLogs([
+  '[Reanimated] Reading from `value` during component render',
+]);
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,7 +31,6 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-// 🚨 [핵심!] 폰트 목록을 바깥에 두어 무한 렌더링(앱 튕김) 방지!
 const customFonts = {
   'BMDOHYEON': require('../assets/fonts/BMDOHYEON_otf.otf'),
   'BMEULJIRO': require('../assets/fonts/BMEULJIRO.otf'),
@@ -27,9 +38,7 @@ const customFonts = {
   'BMHANNAPro': require('../assets/fonts/BMHANNAProOTF.otf'),
   'BMJUA': require('../assets/fonts/BMJUA_otf.otf'),
   'BMYEONSUNG': require('../assets/fonts/BMYEONSUNG_otf.otf'),
-  // 'NotoSansKR': require('../assets/fonts/NotosansKR.ttf'),
 
-  // --- ✨ 프리텐다드 (굵기별 9종) ---
   'Pretendard-Thin': require('../assets/fonts/Pretendard/Pretendard-Thin.otf'),
   'Pretendard-ExtraLight': require('../assets/fonts/Pretendard/Pretendard-ExtraLight.otf'),
   'Pretendard-Light': require('../assets/fonts/Pretendard/Pretendard-Light.otf'),
@@ -44,23 +53,49 @@ const customFonts = {
 export default function RootLayout() {
   const { colorScheme, setColorScheme } = useTailwindColorScheme();
   const { theme, accent } = useThemeStore();
+  const { isLoggedIn, accessToken, refreshUser } = useAuthStore(); // ✅ 추가
+  const router = useRouter(); // ✅ 추가
 
-  // ✨ 폰트 로드
   const [fontsLoaded, fontError] = useFonts(customFonts);
+  const [isHydrated, setIsHydrated] = useState(false);
 
+  // zustand persist hydration 완료 대기
   useEffect(() => {
+    const unsub = useThemeStore.persist.onFinishHydration(() => {
+      setIsHydrated(true);
+    });
+    if (useThemeStore.persist.hasHydrated()) {
+      setIsHydrated(true);
+    }
+    return () => unsub();
+  }, []);
+
+  // ✅ 자동로그인 - hydration 완료 후 토큰 체크
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    if (isLoggedIn && accessToken) {
+      refreshUser().then(() => {
+        router.replace('/(tabs)/home');
+      });
+    }
+  }, [isHydrated]);
+
+  // 테마가 바뀔 때마다 NativeWind에 값을 밀어 넣기
+  useEffect(() => {
+    if (!isHydrated) return;
     setColorScheme(theme);
-  }, [theme]);
+  }, [theme, setColorScheme, isHydrated]);
 
+  // 폰트 + hydration 둘 다 완료되면 스플래시 숨기기
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if ((fontsLoaded || fontError) && isHydrated) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, isHydrated]);
 
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
+  if (!fontsLoaded && !fontError) return null;
+  if (!isHydrated) return null;
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -71,12 +106,9 @@ export default function RootLayout() {
           <Stack.Screen name="auth/signup" />
           <Stack.Screen name="chat/keyboard-chat" />
           <Stack.Screen name="chat/voice-chat" />
-
-          {/* ✨(다이어리 화면들 등록) */}
           <Stack.Screen name="diary-screen/chat-history" />
           <Stack.Screen name="diary-screen/editor" />
           <Stack.Screen name="diary-screen/viewer" />
-
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

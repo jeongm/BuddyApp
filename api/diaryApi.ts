@@ -65,8 +65,8 @@ export const diaryApi = {
     },
 
     // 1-4. 일기 상세 조회
-    getDiaryDetail: async (diarySeq: number) => {
-        const response = await authApi.get<AuthResponse<DiaryDetail>>(`/api/v1/diaries/${diarySeq}`);
+    getDiaryDetail: async (diaryId: number) => {
+        const response = await authApi.get<AuthResponse<DiaryDetail>>(`/api/v1/diaries/${diaryId}`);
         return response.data;
     },
 
@@ -75,32 +75,31 @@ export const diaryApi = {
     // =================================================================
     createDiary: async (data: FormData) => {
         const response = await authApi.post<AuthResponse<number>>('/api/v1/diaries', data, {
-            headers: { "Content-Type": undefined }
+            transformRequest: (data) => data,
         });
         return response.data;
     },
 
-    createDiaryFromChat: async (sessionSeq: number) => {
+    createDiaryFromChat: async (sessionId: number) => {
         const response = await authApi.post<AuthResponse<{
             title: string;
             content: string;
-            tags: { tagSeq: number; name: string }[];
-        }>>('/api/v1/diaries/from-chat', { sessionSeq });
+            tags: { tagId: number; name: string }[];
+        }>>('/api/v1/diaries/from-chat', { sessionId });
         return response.data;
     },
 
     // =================================================================
     // 3. 수정 및 삭제 (Update & Delete)
     // =================================================================
-    updateDiary: async (diarySeq: number, data: FormData) => {
-        const response = await authApi.patch<AuthResponse<number>>(`/api/v1/diaries/${diarySeq}`, data, {
-            headers: { "Content-Type": undefined }
+    updateDiary: async (diaryId: number, data: FormData) => {
+        const response = await authApi.patch<AuthResponse<number>>(`/api/v1/diaries/${diaryId}`, data, {
+            transformRequest: (data) => data,
         });
         return response.data;
     },
-
-    deleteDiary: async (diarySeq: number) => {
-        const response = await authApi.delete<AuthResponse<{}>>(`/api/v1/diaries/${diarySeq}`);
+    deleteDiary: async (diaryId: number) => {
+        const response = await authApi.delete<AuthResponse<{}>>(`/api/v1/diaries/${diaryId}`);
         return response.data;
-    },
+    }
 };
