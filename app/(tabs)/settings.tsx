@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback } from "react";
-import { Alert, Dimensions, Platform, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import { Alert, Dimensions, Modal, Platform, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { memberApi } from "../../api/memberApi";
@@ -28,6 +28,10 @@ export default function SettingsScreen() {
     const { accent } = useThemeStore();
     const accentHex = ACCENT_HEX_COLORS[accent];
 
+    // ✅ 모달 상태 관리 추가
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
     useFocusEffect(
         useCallback(() => {
             refreshUser();
@@ -41,7 +45,7 @@ export default function SettingsScreen() {
     ];
     const myCharacter = characters.find(c => c.seq === user?.characterId) || characters[0];
 
-    // [컴포넌트] 공통 리스트 아이템 (재사용)
+    // [컴포넌트] 공통 리스트 아이템
     const SettingItem = ({ icon, title, subtitle, onPress, isLast, iconColor = "#64748B" }: any) => (
         <TouchableOpacity
             onPress={onPress}
@@ -67,43 +71,36 @@ export default function SettingsScreen() {
         </TouchableOpacity>
     );
 
-    // [로직] 로그아웃
-    const handleLogout = () => {
-        Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
-            { text: "취소", style: "cancel" },
-            { text: "로그아웃", style: "destructive", onPress: () => { logout(); router.replace("/"); } }
-        ]);
+    // [로직] 로그아웃 실행
+    const confirmLogout = () => {
+        setShowLogoutModal(false);
+        logout();
+        router.replace("/");
     };
 
-    // [통신] 회원 탈퇴
-    const handleDeleteAccount = () => {
-        Alert.alert("회원 탈퇴", "모든 데이터가 삭제되며 복구할 수 없습니다.\n정말 탈퇴하시겠습니까?", [
-            { text: "취소", style: "cancel" },
-            {
-                text: "탈퇴하기", style: "destructive", onPress: async () => {
-                    try {
-                        const provider = (user as any)?.providerType;
-                        const socialToken = (user as any)?.socialAccessToken || "";
+    // [로직] 회원 탈퇴 실행
+    const confirmDeleteAccount = async () => {
+        setShowDeleteModal(false);
+        try {
+            const provider = (user as any)?.providerType;
+            const socialToken = (user as any)?.socialAccessToken || "";
 
-                        // 소셜별 추가 로그아웃 처리 공간
-                        if (provider === 'GOOGLE') {
-                            // await GoogleSignin.revokeAccess();
-                        } else if (provider === 'NAVER') {
-                            // await NaverLogin.deleteToken();
-                        }
-
-                        // 백엔드 탈퇴 API 호출
-                        await memberApi.deleteAccount({ socialAccessToken: socialToken });
-
-                        logout();
-                        Alert.alert("탈퇴 완료", "그동안 버디앱을 이용해 주셔서 감사합니다.");
-                        router.replace("/");
-                    } catch (error: any) {
-                        Alert.alert("오류", error.response?.data?.message || "탈퇴 처리에 실패했습니다.");
-                    }
-                }
+            // 소셜별 추가 로그아웃 처리 공간 (필요시 활성화)
+            if (provider === 'GOOGLE') {
+                // await GoogleSignin.revokeAccess();
+            } else if (provider === 'NAVER') {
+                // await NaverLogin.deleteToken();
             }
-        ]);
+
+            // 백엔드 탈퇴 API 호출
+            await memberApi.deleteAccount({ socialAccessToken: socialToken });
+
+            logout();
+            Alert.alert("탈퇴 완료", "그동안 버디를 이용해 주셔서 감사합니다.");
+            router.replace("/");
+        } catch (error: any) {
+            Alert.alert("오류", error.response?.data?.message || "탈퇴 처리에 실패했습니다.");
+        }
     };
 
     return (
@@ -118,18 +115,12 @@ export default function SettingsScreen() {
 
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(80) }} showsVerticalScrollIndicator={false}>
 
-                {/* 🌟 1. 슈퍼 클린 프로필 영역 (과감하게 카드를 걷어내고 여백 압축!) 🌟 */}
+                {/* 1. 프로필 영역 */}
                 <View className="items-center" style={{ paddingTop: scale(28), paddingBottom: scale(24) }}>
-
-                    {/* 1-1. 아바타 & 뱃지 오버랩 (엣지는 그대로 유지!) */}
                     <View className="relative mb-2">
-                        {/* 배경 카드가 사라졌으므로, 아바타 배경을 회색(slate-50)으로 깔아 대비를 살림 */}
                         <View className="bg-slate-50 dark:bg-slate-800 rounded-full items-center justify-center border border-slate-100 dark:border-slate-700/60" style={[{ width: scale(96), height: scale(96) }, safeShadow]}>
                             <Image source={myCharacter.img} style={{ width: scale(72), height: scale(72) }} contentFit="contain" />
                         </View>
-
-                        {/* 마법의 오버랩 뱃지! (단짝 버디) */}
-                        {/* border-white를 줘서 아바타를 파먹은 것처럼 보이게 하는 스킬은 유지! */}
                         <View
                             className="absolute -bottom-2.5 self-center rounded-full border-[3.5px] border-white dark:border-slate-950"
                             style={{ backgroundColor: accentHex, paddingHorizontal: scale(10), paddingVertical: scale(3) }}
@@ -139,21 +130,17 @@ export default function SettingsScreen() {
                             </Text>
                         </View>
                     </View>
-
-                    {/* 1-2. 유저 텍스트 정보 (여백을 극도로 촘촘하게 압축) */}
                     <View className="items-center" style={{ marginTop: scale(16) }}>
                         <Text className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(22) }} allowFontScaling={false}>
                             {user?.nickname}
                         </Text>
-                        {/* 닉네임 바로 밑에 붙여버림 (mt-0.5) */}
                         <Text className="font-medium text-slate-400 dark:text-slate-500 mt-0.5" style={{ fontSize: scale(13) }} allowFontScaling={false}>
                             {user?.email}
                         </Text>
                     </View>
-
                 </View>
 
-                {/* 2. 설정 메뉴 리스트 영역 (여기부터 카드 그룹) */}
+                {/* 2. 설정 메뉴 리스트 영역 */}
                 <View style={{ paddingHorizontal: scale(20), gap: scale(24) }}>
 
                     {/* [Account] */}
@@ -181,18 +168,11 @@ export default function SettingsScreen() {
                         </View>
                     </View>
 
-                    {/* ✨ [Notification] 메뉴 (종 모양 아이콘으로 큼직하게 변경!) */}
+                    {/* [Notification] */}
                     <View>
                         <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Notification</Text>
                         <View className="bg-slate-50 dark:bg-slate-900 rounded-[24px] overflow-hidden border border-slate-100 dark:border-slate-800/60" style={safeShadow}>
-                            <SettingItem
-                                icon="notifications" // 🚨 기존 notifications-circle에서 변경!
-                                iconColor="#EC4899"
-                                title="알림 설정"
-                                subtitle="야간, 데일리, 마케팅 알림"
-                                onPress={() => router.push('/settings/notification')}
-                                isLast
-                            />
+                            <SettingItem icon="notifications" iconColor="#EC4899" title="알림 설정" subtitle="야간, 데일리, 마케팅 알림" onPress={() => router.push('/settings/notification')} isLast />
                         </View>
                     </View>
 
@@ -200,7 +180,6 @@ export default function SettingsScreen() {
                     <View>
                         <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Information</Text>
                         <View className="bg-slate-50 dark:bg-slate-900 rounded-[24px] overflow-hidden border border-slate-100 dark:border-slate-800/60" style={safeShadow}>
-                            {/* 🚨 공지사항 아이콘을 확성기(megaphone)로 변경! */}
                             <SettingItem icon="megaphone" title="공지사항" onPress={() => Alert.alert("알림", "준비 중인 기능입니다.")} />
                             <SettingItem icon="shield-checkmark" title="개인정보 처리방침" onPress={() => Alert.alert("알림", "준비 중인 기능입니다.")} />
                             <TouchableOpacity activeOpacity={1} className="flex-row items-center justify-between px-5 py-4">
@@ -219,7 +198,8 @@ export default function SettingsScreen() {
                     <View>
                         <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Account Actions</Text>
                         <View className="bg-slate-50 dark:bg-slate-950 rounded-[24px] overflow-hidden border border-slate-100 dark:border-slate-800/60" style={safeShadow}>
-                            <TouchableOpacity onPress={handleLogout} activeOpacity={0.6} className="flex-row items-center justify-between px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                            {/* ✅ 모달 오픈 함수로 변경 */}
+                            <TouchableOpacity onPress={() => setShowLogoutModal(true)} activeOpacity={0.6} className="flex-row items-center justify-between px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/60">
                                 <View className="flex-row items-center gap-4">
                                     <View className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 items-center justify-center" style={safeShadow}>
                                         <Ionicons name="log-out-outline" size={scale(18)} color="#64748B" />
@@ -228,7 +208,8 @@ export default function SettingsScreen() {
                                 </View>
                             </TouchableOpacity>
 
-                            <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.6} className="flex-row items-center justify-between px-5 py-4">
+                            {/* ✅ 모달 오픈 함수로 변경 */}
+                            <TouchableOpacity onPress={() => setShowDeleteModal(true)} activeOpacity={0.6} className="flex-row items-center justify-between px-5 py-4">
                                 <View className="flex-row items-center gap-4">
                                     <View className="w-9 h-9 rounded-full bg-rose-50 dark:bg-rose-900/30 items-center justify-center">
                                         <Ionicons name="warning" size={scale(18)} color="#F43F5E" />
@@ -243,6 +224,67 @@ export default function SettingsScreen() {
 
                 </View>
             </ScrollView>
+
+            {/* ✨ 1. 로그아웃 확인 모달 ✨ */}
+            <Modal visible={showLogoutModal} transparent={true} animationType="fade">
+                <View className="flex-1 justify-center items-center bg-black/60 px-6">
+                    <View className="bg-white dark:bg-slate-900 w-full rounded-[2rem] p-8 items-center" style={safeShadow}>
+                        <View className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full items-center justify-center mb-5">
+                            <Ionicons name="log-out-outline" size={scale(32)} color="#64748B" />
+                        </View>
+                        <Text className="font-black text-slate-900 dark:text-white text-center mb-2" style={{ fontSize: scale(22) }} allowFontScaling={false}>
+                            로그아웃 하시겠어요?
+                        </Text>
+                        <Text className="font-medium text-slate-500 dark:text-slate-400 text-center mb-8" style={{ fontSize: scale(14), lineHeight: scale(22) }} allowFontScaling={false}>
+                            언제든 다시 돌아오실 수 있어요!
+                        </Text>
+                        <View className="w-full" style={{ gap: scale(10) }}>
+                            <TouchableOpacity onPress={confirmLogout} activeOpacity={0.8} className="w-full bg-slate-900 dark:bg-white rounded-2xl items-center justify-center" style={{ height: scale(56) }}>
+                                <Text className="font-extrabold text-white dark:text-slate-900" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                                    네, 로그아웃 할게요
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowLogoutModal(false)} activeOpacity={0.8} className="w-full bg-slate-100 dark:bg-slate-800 rounded-2xl items-center justify-center" style={{ height: scale(56) }}>
+                                <Text className="font-bold text-slate-500 dark:text-slate-400" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                                    취소
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ✨ 2. 회원 탈퇴 확인 모달 ✨ */}
+            <Modal visible={showDeleteModal} transparent={true} animationType="fade">
+                <View className="flex-1 justify-center items-center bg-black/60 px-6">
+                    <View className="bg-white dark:bg-slate-900 w-full rounded-[2rem] p-8 items-center" style={safeShadow}>
+                        {/* 탈퇴 모달은 경고 느낌을 주기 위해 빨간색 포인트 사용 */}
+                        <View className="w-16 h-16 bg-rose-50 dark:bg-rose-900/30 rounded-full items-center justify-center mb-5">
+                            <Ionicons name="warning" size={scale(32)} color="#F43F5E" />
+                        </View>
+                        <Text className="font-black text-slate-900 dark:text-white text-center mb-3" style={{ fontSize: scale(22) }} allowFontScaling={false}>
+                            정말 탈퇴하시겠어요?
+                        </Text>
+                        <Text className="font-medium text-slate-500 dark:text-slate-400 text-center mb-8" style={{ fontSize: scale(14), lineHeight: scale(22) }} allowFontScaling={false}>
+                            모든 데이터가 삭제되며,{'\n'}절대 복구할 수 없어요.
+                        </Text>
+                        <View className="w-full" style={{ gap: scale(10) }}>
+                            {/* 위험한 작업이므로 메인 버튼도 붉은색 톤으로 적용 */}
+                            <TouchableOpacity onPress={confirmDeleteAccount} activeOpacity={0.8} className="w-full bg-rose-500 dark:bg-rose-600 rounded-2xl items-center justify-center" style={{ height: scale(56) }}>
+                                <Text className="font-extrabold text-white" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                                    네, 탈퇴할게요
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowDeleteModal(false)} activeOpacity={0.8} className="w-full bg-slate-100 dark:bg-slate-800 rounded-2xl items-center justify-center" style={{ height: scale(56) }}>
+                                <Text className="font-bold text-slate-500 dark:text-slate-400" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                                    취소
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
         </SafeAreaView>
     );
 }

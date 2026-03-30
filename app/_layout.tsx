@@ -75,9 +75,29 @@ export default function RootLayout() {
     if (!isHydrated) return;
 
     if (isLoggedIn && accessToken) {
-      refreshUser().then(() => {
-        router.replace('/(tabs)/home');
-      });
+      refreshUser()
+        .then(() => {
+          router.replace('/(tabs)/home');
+        })
+        .catch((error: any) => {
+          const isNetworkError = !error?.response;
+          const isAuthError =
+            error?.response?.status === 401 ||
+            error?.response?.data?.code === 'T002' ||
+            error?.response?.data?.code === 'G003';
+
+          if (isNetworkError) {
+            // 네트워크 문제 → 토큰은 유효할 수 있으니 그냥 홈으로
+            router.replace('/(tabs)/home');
+          } else if (isAuthError) {
+            // 토큰 만료 → 로그아웃 후 온보딩으로
+            useAuthStore.getState().logout();
+            router.replace('/');
+          } else {
+            // 그 외 에러 → 그냥 홈으로
+            router.replace('/(tabs)/home');
+          }
+        });
     }
   }, [isHydrated]);
 

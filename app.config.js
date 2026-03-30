@@ -71,12 +71,12 @@ module.exports = {
             [
                 "expo-splash-screen",
                 {
-                    image: "./assets/images/splash-icon.png",
-                    imageWidth: 200,
+                    image: "./assets/images/splash.png",
+                    imageWidth: 200, // iOS 기본값
                     resizeMode: "contain",
                     backgroundColor: "#ffffff",
-                    dark: {
-                        backgroundColor: "#000000"
+                    android: {
+                        imageWidth: 150, // 안드로이드는 따로 설정
                     }
                 }
             ],

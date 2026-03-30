@@ -1,3 +1,4 @@
+// app/diary-screen/chat-history.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -10,7 +11,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { chatApi } from "../../api/chatApi";
 import { AppText as Text } from '../../components/AppText';
 import { useSettingStore } from "../../store/useSettingStore";
-// [추가] 테마 스토어 연동
 import { ACCENT_HEX_COLORS, useThemeStore } from "../../store/useThemeStore";
 import type { ChatMessage } from "../../types/chat";
 
@@ -28,7 +28,6 @@ export default function ChatHistoryScreen() {
     const { fontFamily } = useSettingStore();
     const customFontFamily = fontFamily === 'System' ? undefined : fontFamily;
 
-    // [테마] 전역 색상 동기화
     const { accent } = useThemeStore();
     const accentHex = ACCENT_HEX_COLORS[accent];
 
@@ -36,7 +35,6 @@ export default function ChatHistoryScreen() {
     const [characterId, setCharacterId] = useState<number | undefined>();
     const [loading, setLoading] = useState(true);
 
-    // [로직] 캐릭터 프로필 이미지 매핑 (즉시 실행 함수로 최적화)
     const currentProfileImg = (() => {
         switch (characterId) {
             case 1: return require('../../assets/images/characters/Hamster.webp');
@@ -46,7 +44,6 @@ export default function ChatHistoryScreen() {
         }
     })();
 
-    // [통신] 과거 대화 내역 로드
     useEffect(() => {
         const fetchHistory = async () => {
             if (!sessionId) {
@@ -61,7 +58,6 @@ export default function ChatHistoryScreen() {
                     if (resultData.characterId) {
                         setCharacterId(resultData.characterId);
                     }
-
                     if (resultData.messages && Array.isArray(resultData.messages)) {
                         const sortedChats = [...resultData.messages].sort(
                             (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -82,7 +78,7 @@ export default function ChatHistoryScreen() {
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top', 'bottom']}>
             <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
 
-            {/* 헤더 영역 */}
+            {/* 헤더 */}
             <View className="flex-row items-center justify-between bg-white/90 dark:bg-slate-950/90 backdrop-blur-md z-20 border-b border-slate-100 dark:border-slate-800/60 relative" style={{ paddingHorizontal: scale(16), height: scale(52) }}>
                 <TouchableOpacity onPress={() => router.back()} style={{ padding: scale(6), zIndex: 10 }}>
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
@@ -97,12 +93,14 @@ export default function ChatHistoryScreen() {
                 <View style={{ width: scale(40) }} />
             </View>
 
-            {/* 채팅 리스트 영역 */}
-            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(60), paddingTop: scale(20) }} showsVerticalScrollIndicator={false}>
+            {/* 채팅 리스트 */}
+            <ScrollView
+                className="flex-1"
+                contentContainerStyle={{ paddingBottom: scale(60), paddingTop: scale(20) }}
+                showsVerticalScrollIndicator={false}
+            >
                 <View className="animate-[fade-in_0.3s]" style={{ paddingHorizontal: scale(16) }}>
-
                     {loading ? (
-                        // ✨ 초기 로딩 바 색상을 accentHex로 동기화!
                         <ActivityIndicator size="large" color={accentHex} style={{ marginTop: scale(40) }} />
                     ) : chatHistory.length === 0 ? (
                         <View className="items-center opacity-50" style={{ paddingVertical: scale(80) }}>
@@ -135,21 +133,40 @@ export default function ChatHistoryScreen() {
                                             </View>
                                         )}
 
-                                        {/* 말풍선 및 시간 */}
-                                        <View className={`max-w-[75%] flex-row items-end ${isUser ? "justify-end" : "justify-start"}`}>
-                                            {isUser && <Text className="text-[10px] text-slate-400 font-bold mr-1.5 mb-1" allowFontScaling={false}>{chatTime}</Text>}
+                                        {/* ✅ max-w-[65%]로 줄여서 시간 공간 확보 */}
+                                        <View className={`${Platform.OS === 'ios' ? 'max-w-[72%]' : 'max-w-[65%]'} flex-row items-end ${isUser ? "justify-end" : "justify-start"}`}>
+                                            {/* ✅ flexShrink: 0으로 시간 잘림 방지 */}
+                                            {isUser && (
+                                                <Text
+                                                    style={{ flexShrink: 0, fontSize: 11, color: '#94A3B8', fontWeight: 'bold', marginRight: 6, marginBottom: 4 }}
+                                                    allowFontScaling={false}
+                                                >
+                                                    {chatTime}
+                                                </Text>
+                                            )}
 
-                                            {/* ✨ 내가 보낸 말풍선 배경색을 primary-500으로 변경! */}
                                             <View
                                                 className={`px-4 ${isUser ? "bg-primary-500 rounded-[20px] rounded-tr-[4px]" : "bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-[20px] rounded-tl-[4px]"}`}
                                                 style={[{ paddingVertical: scale(8) }, safeShadow]}
                                             >
-                                                <Text className={`font-medium ${isUser ? "text-white" : "text-slate-800 dark:text-slate-200"}`} style={{ fontSize: scale(15), lineHeight: scale(24) }} allowFontScaling={false}>
+                                                <Text
+                                                    className={`font-medium ${isUser ? "text-white" : "text-slate-800 dark:text-slate-200"}`}
+                                                    style={{ fontSize: scale(15), lineHeight: scale(24) }}
+                                                    allowFontScaling={false}
+                                                >
                                                     {chat.content}
                                                 </Text>
                                             </View>
 
-                                            {!isUser && <Text className="text-[10px] text-slate-400 font-bold ml-1.5 mb-1" allowFontScaling={false}>{chatTime}</Text>}
+                                            {/* ✅ flexShrink: 0으로 시간 잘림 방지 */}
+                                            {!isUser && (
+                                                <Text
+                                                    style={{ flexShrink: 0, fontSize: 11, color: '#94A3B8', fontWeight: 'bold', marginLeft: 6, marginBottom: 4 }}
+                                                    allowFontScaling={false}
+                                                >
+                                                    {chatTime}
+                                                </Text>
+                                            )}
                                         </View>
 
                                     </View>
