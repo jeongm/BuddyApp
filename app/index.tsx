@@ -29,7 +29,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const scale = (size: number) => Math.round((width / 430) * size);
 
 const KAKAO_CLIENT_ID = "0cb1b0be0b0b267c4d25cf21596447eb";
@@ -38,13 +38,35 @@ const GOOGLE_WEB_CLIENT_ID = "558616630470-tfejh2ammnjtuufa4rvai5nkii93qu3l.apps
 const GOOGLE_IOS_CLIENT_ID = "558616630470-fef57mvgtffu8c5v3l9mr1ll6tatvem6.apps.googleusercontent.com";
 const FAKE_REDIRECT_URI = "https://buddy.com/oauth/callback";
 
-// ✅ Provider 타입 명시
 type SocialProvider = 'kakao' | 'naver' | 'google' | 'apple';
 
+// ✅ 네이버 구조에 맞춘 텍스트 분리 (타이틀 강조, 설명 추가)
 const INTRO_SLIDES = [
-    { id: '1', title: '내 마음을 읽는 단짝', description: '누구에게도 말 못 할 고민,\n버디에게 편하게 털어놓아 보세요.' },
-    { id: '2', title: '하루를 기록하는 일기장', description: '대화를 나누기만 해도\n버디가 오늘의 일기를 예쁘게 써줄 거예요.' },
-    { id: '3', title: '다양한 매력의 친구들', description: '공감 요정 햄찌부터 냉철한 폭스까지,\n나와 가장 잘 맞는 친구를 골라보세요.' }
+    {
+        id: '1',
+        title: '내 마음을 알아주는 단짝',
+        description: '지치고 힘든 퇴근길, 누구에게도 말 못 할 고민을\n버디에게 편하게 털어놓아 보세요.',
+        // 💡 준비하신 사진 경로로 맞춰주세요
+        image: require('../assets/images/onboarding/onboarding_1.png')
+    },
+    {
+        id: '2',
+        title: '알아서 기록되는 하루',
+        description: '피곤한 밤, 대화를 나누기만 해도 버디가\n오늘의 감성을 담아 예쁜 일기를 써줄 거예요.',
+        image: require('../assets/images/onboarding/onboarding_2.png')
+    },
+    {
+        id: '3',
+        title: '나를 돌아보는 감정 리포트',
+        description: '이번 주 내 마음의 온도는 어땠을까?\n한눈에 보는 리포트로 나를 더 아껴주세요.',
+        image: require('../assets/images/onboarding/onboarding_3.png')
+    },
+    {
+        id: '4',
+        title: '내 취향에 딱 맞는 버디',
+        description: '무조건 내 편인 햄찌부터 냉철한 폭스까지,\n지금 바로 나와 가장 잘 맞는 단짝을 만나보세요!',
+        image: require('../assets/images/onboarding/onboarding_4.png')
+    }
 ];
 
 export default function OnboardingScreen() {
@@ -58,7 +80,6 @@ export default function OnboardingScreen() {
     const [isWebviewVisible, setIsWebviewVisible] = useState(false);
     const [authUrl, setAuthUrl] = useState("");
 
-    // ✅ currentProvider를 ref로 교체 - WebView 콜백 시점에 항상 최신값 보장
     const currentProviderRef = useRef<SocialProvider | "">("");
 
     useFocusEffect(useCallback(() => {
@@ -87,7 +108,6 @@ export default function OnboardingScreen() {
     };
 
     const handleSocialLogin = async (provider: SocialProvider) => {
-        // ✅ ref에 즉시 반영 - setState와 달리 비동기 딜레이 없음
         currentProviderRef.current = provider;
 
         if (provider === 'apple') {
@@ -186,10 +206,8 @@ export default function OnboardingScreen() {
 
         setIsWebviewVisible(false);
 
-        // ✅ URLSearchParams로 교체 - '='가 값에 포함된 경우도 안전하게 파싱
         try {
             const urlObj = new URL(url);
-            // fragment(#) 방식도 대응
             const searchParams = url.includes('#')
                 ? new URLSearchParams(url.split('#')[1])
                 : urlObj.searchParams;
@@ -261,17 +279,8 @@ export default function OnboardingScreen() {
         return (
             <SafeAreaView className="flex-1 bg-white">
                 <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-                <View className="flex-1 justify-center items-center">
-                    <Animated.View entering={FadeInDown.duration(800)} className="absolute top-16 items-center">
-                        <Text
-                            className="text-slate-900 font-black tracking-tighter"
-                            style={{ fontSize: scale(36) }}
-                            allowFontScaling={false}
-                        >
-                            BUDDY
-                        </Text>
-                    </Animated.View>
 
+                <View className="flex-1">
                     <FlatList
                         ref={flatListRef}
                         data={INTRO_SLIDES}
@@ -282,36 +291,50 @@ export default function OnboardingScreen() {
                         onViewableItemsChanged={onViewableItemsChanged}
                         viewabilityConfig={viewabilityConfig}
                         renderItem={({ item }) => (
-                            <View style={{ width }} className="items-center justify-center px-8">
-                                <View className="w-full max-w-[340px] aspect-[4/5] bg-slate-50 rounded-[2.5rem] border border-slate-100 items-center justify-center p-8 shadow-sm">
-                                    <View className="w-32 h-32 rounded-full bg-slate-200 mb-8 items-center justify-center">
-                                        <Ionicons name="image-outline" size={scale(40)} color="#94A3B8" />
-                                    </View>
+                            <View style={{ width }} className="flex-1 bg-white items-center pt-16 pb-32">
+                                {/* 1. 상단 텍스트 영역 (블랙 앤 화이트) */}
+                                <View className="items-center px-6 mb-8 w-full">
                                     <Text
-                                        className="font-extrabold text-slate-900 mb-3 text-center tracking-tight"
-                                        style={{ fontSize: scale(24) }}
+                                        className="font-black text-black text-center mb-3"
+                                        style={{ fontSize: scale(28), lineHeight: scale(36) }}
                                         allowFontScaling={false}
                                     >
                                         {item.title}
                                     </Text>
                                     <Text
-                                        className="font-medium text-slate-500 text-center leading-6"
-                                        style={{ fontSize: scale(15) }}
+                                        className="font-medium text-gray-500 text-center"
+                                        style={{ fontSize: scale(15), lineHeight: scale(24) }}
                                         allowFontScaling={false}
                                     >
                                         {item.description}
                                     </Text>
                                 </View>
+
+                                {/* 2. 중앙 이미지 영역 (네이버처럼 화면 가운데 배치) */}
+                                <View className="flex-1 w-full px-10 items-center justify-center">
+                                    {item.image ? (
+                                        <Image
+                                            source={item.image}
+                                            style={{ width: '100%', height: '100%' }}
+                                            contentFit="contain"
+                                        />
+                                    ) : (
+                                        <View className="w-full h-full bg-slate-50 rounded-[2rem] border border-slate-100 items-center justify-center">
+                                            <Ionicons name="image-outline" size={scale(40)} color="#94A3B8" />
+                                        </View>
+                                    )}
+                                </View>
                             </View>
                         )}
                     />
 
-                    <View className="absolute bottom-12 w-full px-8 items-center">
-                        <View className="flex-row gap-2 mb-8">
+                    {/* 3. 하단 인디케이터 및 버튼 영역 (고정) */}
+                    <View className="absolute bottom-10 w-full px-6 items-center">
+                        <View className="flex-row gap-2 mb-6">
                             {INTRO_SLIDES.map((_, index) => (
                                 <View
                                     key={index}
-                                    className={`h-2 rounded-full ${currentIndex === index ? 'w-6 bg-slate-900' : 'w-2 bg-slate-200'}`}
+                                    className={`h-2 rounded-full ${currentIndex === index ? 'w-6 bg-black' : 'w-2 bg-gray-200'}`}
                                 />
                             ))}
                         </View>
@@ -319,7 +342,7 @@ export default function OnboardingScreen() {
                             onPress={handleNext}
                             activeOpacity={0.8}
                             style={{ height: scale(56) }}
-                            className="w-full bg-slate-900 rounded-[1.5rem] items-center justify-center shadow-sm max-w-[340px]"
+                            className="w-full bg-black rounded-[1.5rem] items-center justify-center shadow-sm max-w-[340px]"
                         >
                             <Text
                                 className="text-white font-extrabold tracking-wide"
@@ -342,14 +365,14 @@ export default function OnboardingScreen() {
             <View className="flex-1 justify-center items-center w-full pb-10">
                 <Animated.View entering={FadeInDown.duration(800).springify()} className="items-center mb-10">
                     <Text
-                        className="text-slate-900 font-black tracking-tighter"
+                        className="text-black font-black tracking-tighter"
                         style={{ fontSize: scale(60), lineHeight: scale(66) }}
                         allowFontScaling={false}
                     >
-                        BUDDY
+                        하루버디
                     </Text>
                     <Text
-                        className="text-slate-500 font-bold tracking-wide mt-2"
+                        className="text-gray-500 font-bold tracking-wide mt-2"
                         style={{ fontSize: scale(15) }}
                         allowFontScaling={false}
                     >
@@ -359,15 +382,15 @@ export default function OnboardingScreen() {
 
                 <View className="w-full px-6 max-w-[380px]">
                     <Animated.View entering={FadeInUp.duration(600).delay(200).springify()} className="items-center mb-3 z-10">
-                        <View className="bg-slate-100 rounded-full relative" style={{ paddingHorizontal: scale(20), paddingVertical: scale(10) }}>
+                        <View className="bg-gray-100 rounded-full relative" style={{ paddingHorizontal: scale(20), paddingVertical: scale(10) }}>
                             <Text
-                                className="text-slate-700 font-extrabold tracking-wide"
+                                className="text-gray-700 font-extrabold tracking-wide"
                                 style={{ fontSize: scale(13) }}
                                 allowFontScaling={false}
                             >
                                 3초 만에 나만의 버디 만나기 🎉
                             </Text>
-                            <View className="absolute -bottom-1.5 left-1/2 -ml-1.5 w-3 h-3 bg-slate-100 rotate-45" />
+                            <View className="absolute -bottom-1.5 left-1/2 -ml-1.5 w-3 h-3 bg-gray-100 rotate-45" />
                         </View>
                     </Animated.View>
 
@@ -424,7 +447,7 @@ export default function OnboardingScreen() {
                             onPress={() => handleSocialLogin('google')}
                             activeOpacity={0.8}
                             style={{ height: scale(56) }}
-                            className="w-full bg-white border border-slate-200 rounded-full flex-row items-center justify-center shadow-sm"
+                            className="w-full bg-white border border-gray-200 rounded-full flex-row items-center justify-center shadow-sm"
                         >
                             <View className="absolute left-6 items-center justify-center">
                                 <Image
@@ -434,7 +457,7 @@ export default function OnboardingScreen() {
                                 />
                             </View>
                             <Text
-                                className="text-slate-800 font-extrabold"
+                                className="text-gray-800 font-extrabold"
                                 style={{ fontSize: scale(15) }}
                                 allowFontScaling={false}
                             >
@@ -465,15 +488,15 @@ export default function OnboardingScreen() {
 
                         {/* 구분선 */}
                         <View className="flex-row items-center w-full my-1 px-2">
-                            <View className="flex-1 h-[1px] bg-slate-200" />
+                            <View className="flex-1 h-[1px] bg-gray-200" />
                             <Text
-                                className="text-slate-400 font-extrabold px-4"
+                                className="text-gray-400 font-extrabold px-4"
                                 style={{ fontSize: scale(12) }}
                                 allowFontScaling={false}
                             >
                                 또는
                             </Text>
-                            <View className="flex-1 h-[1px] bg-slate-200" />
+                            <View className="flex-1 h-[1px] bg-gray-200" />
                         </View>
 
                         {/* 이메일 로그인 */}
@@ -481,17 +504,17 @@ export default function OnboardingScreen() {
                             onPress={() => router.push('/auth/login')}
                             activeOpacity={0.8}
                             style={{ height: scale(56) }}
-                            className={`w-full rounded-full flex-row items-center justify-center ${Platform.OS === 'ios' ? 'bg-slate-200' : 'bg-slate-900'}`}
+                            className={`w-full rounded-full flex-row items-center justify-center ${Platform.OS === 'ios' ? 'bg-gray-200' : 'bg-black'}`}
                         >
                             <View className="absolute left-6 items-center justify-center mb-0.5">
                                 <Ionicons
                                     name="mail"
                                     size={scale(20)}
-                                    color={Platform.OS === 'ios' ? '#475569' : '#FFFFFF'}
+                                    color={Platform.OS === 'ios' ? '#4B5563' : '#FFFFFF'}
                                 />
                             </View>
                             <Text
-                                className={`font-extrabold ${Platform.OS === 'ios' ? 'text-slate-800' : 'text-white'}`}
+                                className={`font-extrabold ${Platform.OS === 'ios' ? 'text-gray-800' : 'text-white'}`}
                                 style={{ fontSize: scale(15) }}
                                 allowFontScaling={false}
                             >
@@ -504,15 +527,21 @@ export default function OnboardingScreen() {
                             <TouchableOpacity
                                 onPress={() => router.push('/auth/signup')}
                                 activeOpacity={0.6}
-                                className="py-2"
+                                className="py-2 flex-row items-center justify-center"
                             >
                                 <Text
-                                    className="font-medium text-slate-500"
+                                    className="font-medium text-gray-500 mr-1"
                                     style={{ fontSize: scale(14) }}
                                     allowFontScaling={false}
                                 >
-                                    처음이신가요?{' '}
-                                    <Text className="font-black text-slate-900">이메일로 가입하기</Text>
+                                    처음이신가요?
+                                </Text>
+                                <Text
+                                    className="font-black text-black"
+                                    style={{ fontSize: scale(14) }}
+                                    allowFontScaling={false}
+                                >
+                                    이메일로 가입하기
                                 </Text>
                             </TouchableOpacity>
 
@@ -521,7 +550,7 @@ export default function OnboardingScreen() {
                                 activeOpacity={0.6}
                             >
                                 <Text
-                                    className="font-bold text-slate-400 underline"
+                                    className="font-bold text-gray-400 underline"
                                     style={{ fontSize: scale(12) }}
                                     allowFontScaling={false}
                                 >
@@ -543,7 +572,7 @@ export default function OnboardingScreen() {
                 <RNSafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
                     <View className="flex-row justify-between items-center px-4 py-2 border-b border-gray-100">
                         <Text
-                            className="font-bold text-slate-800"
+                            className="font-bold text-gray-800"
                             style={{ fontSize: scale(16) }}
                             allowFontScaling={false}
                         >
