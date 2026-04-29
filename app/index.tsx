@@ -264,12 +264,22 @@ export default function OnboardingScreen() {
 
     const handleLoginSuccess = (resultData: any) => {
         const { accessToken, refreshToken, member } = resultData;
-        setTokens(accessToken, refreshToken);
-        if (member) setUser(member);
 
         if (!member?.nickname || !member?.characterId) {
-            router.replace('/auth/terms?mode=social');
+            // ✅ 신규 유저: 토큰을 저장하지 않고 params로 넘김
+            router.replace({
+                pathname: '/auth/terms',
+                params: {
+                    mode: 'social',
+                    accessToken,
+                    refreshToken,
+                    member: JSON.stringify(member),
+                }
+            });
         } else {
+            // ✅ 기존 유저: 바로 저장 후 홈으로
+            setTokens(accessToken, refreshToken);
+            if (member) setUser(member);
             router.replace('/(tabs)/home');
         }
     };

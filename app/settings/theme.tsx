@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Dimensions, Modal, Platform, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, Modal, Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText as Text } from '../../components/AppText';
 
@@ -78,13 +78,13 @@ export default function ThemeSettingsScreen() {
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
                 <View className="absolute left-0 right-0 h-full items-center justify-center pointer-events-none" style={{ zIndex: -1 }}>
-                    <RNText
+                    <Text
                         className="font-black text-slate-900 dark:text-white tracking-tight"
                         style={{ fontSize: scale(18), fontFamily: customFontFamily }}
                         allowFontScaling={false}
                     >
                         테마 및 색상
-                    </RNText>
+                    </Text>
                 </View>
                 <View style={{ width: scale(44) }} />
             </View>

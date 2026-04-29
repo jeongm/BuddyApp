@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText as Text } from '../../components/AppText';
 
@@ -63,9 +63,9 @@ export default function EditBuddyNameScreen() {
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
                 <View className="absolute left-0 right-0 h-full items-center justify-center pointer-events-none" style={{ zIndex: -1 }}>
-                    <RNText className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <Text className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
                         버디 이름 변경
-                    </RNText>
+                    </Text>
                 </View>
                 <View style={{ width: scale(44) }} />
             </View>
@@ -119,9 +119,9 @@ export default function EditBuddyNameScreen() {
                         {isSavingName ? (
                             <ActivityIndicator size="small" color="#FFFFFF" />
                         ) : (
-                            <RNText className={`font-extrabold tracking-wide ${(!buddyNameInput.trim() || isSavingName) ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`} style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
+                            <Text className={`font-extrabold tracking-wide ${(!buddyNameInput.trim() || isSavingName) ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`} style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
                                 저장하기
-                            </RNText>
+                            </Text>
                         )}
                     </TouchableOpacity>
 

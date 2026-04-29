@@ -2,11 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Alert, Dimensions, Modal, Platform, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, Modal, Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { memberApi } from "../../api/memberApi";
-import { AppText as Text } from '../../components/AppText';
+import { AppText, AppText as Text } from '../../components/AppText';
 import { useAuthStore } from "../../store/useAuthStore";
 import { useSettingStore } from "../../store/useSettingStore";
 import { ACCENT_HEX_COLORS, useThemeStore } from "../../store/useThemeStore";
@@ -108,9 +108,13 @@ export default function SettingsScreen() {
 
             {/* 헤더 영역 */}
             <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-20 border-b border-slate-100 dark:border-slate-800/60">
-                <RNText className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>
+                <AppText
+                    className="font-extrabold text-slate-900 dark:text-white tracking-tight"
+                    style={{ fontSize: 26, lineHeight: 36, fontFamily: customFontFamily }}
+                    allowFontScaling={false}
+                >
                     Setting
-                </RNText>
+                </AppText>
             </View>
 
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(80) }} showsVerticalScrollIndicator={false}>
@@ -181,7 +185,11 @@ export default function SettingsScreen() {
                         <Text className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-4 mb-2" style={{ fontSize: scale(12) }} allowFontScaling={false}>Information</Text>
                         <View className="bg-slate-50 dark:bg-slate-900 rounded-[24px] overflow-hidden border border-slate-100 dark:border-slate-800/60" style={safeShadow}>
                             <SettingItem icon="megaphone" title="공지사항" onPress={() => Alert.alert("알림", "준비 중인 기능입니다.")} />
-                            <SettingItem icon="shield-checkmark" title="개인정보 처리방침" onPress={() => Alert.alert("알림", "준비 중인 기능입니다.")} />
+                            <SettingItem
+                                icon="shield-checkmark"
+                                title="개인정보 처리방침"
+                                onPress={() => router.push('/settings/privacy')}  // ← Alert → router.push로 변경
+                            />
                             <TouchableOpacity activeOpacity={1} className="flex-row items-center justify-between px-5 py-4">
                                 <View className="flex-row items-center gap-4">
                                     <View className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 items-center justify-center" style={safeShadow}>

@@ -8,7 +8,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme as useTailwindColorScheme } from 'nativewind';
 import "../global.css";
-import { useAuthStore } from '../store/useAuthStore'; // ✅ 추가
+import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 
 import { useFonts } from 'expo-font';
@@ -16,6 +16,8 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { LogBox } from 'react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+// ✨ KeyboardProvider import 추가
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 LogBox.ignoreLogs([
   '[Reanimated] Reading from `value` during component render',
@@ -50,64 +52,62 @@ const customFonts = {
   'Pretendard-Black': require('../assets/fonts/Pretendard/Pretendard-Black.otf'),
 };
 
+function NavigationInitializer() {
+  const router = useRouter();
+  const { isLoggedIn, accessToken, refreshUser } = useAuthStore();
+
+  useEffect(() => {
+    if (!isLoggedIn || !accessToken) return;
+
+    refreshUser()
+      .then(() => {
+        router.replace('/(tabs)/home');
+      })
+      .catch((error: any) => {
+        const isNetworkError = !error?.response;
+
+        if (isNetworkError) {
+          console.warn("⚠️ 네트워크 오류 - 캐시된 유저 정보로 홈 이동");
+          router.replace('/(tabs)/home');
+        } else {
+          console.warn("🚪 인증 실패 - 온보딩 화면으로 이동");
+          useAuthStore.getState().logout();
+          router.replace('/');
+        }
+      });
+  }, []);
+
+  return null;
+}
+
 export default function RootLayout() {
   const { colorScheme, setColorScheme } = useTailwindColorScheme();
   const { theme, accent } = useThemeStore();
-  const { isLoggedIn, accessToken, refreshUser } = useAuthStore(); // ✅ 추가
-  const router = useRouter(); // ✅ 추가
 
   const [fontsLoaded, fontError] = useFonts(customFonts);
-  const [isHydrated, setIsHydrated] = useState(false);
 
-  // zustand persist hydration 완료 대기
+  const [isAuthHydrated, setIsAuthHydrated] = useState(false);
+  const [isThemeHydrated, setIsThemeHydrated] = useState(false);
+
+  const isHydrated = isAuthHydrated && isThemeHydrated;
+
   useEffect(() => {
-    const unsub = useThemeStore.persist.onFinishHydration(() => {
-      setIsHydrated(true);
-    });
-    if (useThemeStore.persist.hasHydrated()) {
-      setIsHydrated(true);
-    }
+    const unsub = useThemeStore.persist.onFinishHydration(() => setIsThemeHydrated(true));
+    if (useThemeStore.persist.hasHydrated()) setIsThemeHydrated(true);
     return () => unsub();
   }, []);
 
-  // ✅ 자동로그인 - hydration 완료 후 토큰 체크
   useEffect(() => {
-    if (!isHydrated) return;
+    const unsub = useAuthStore.persist.onFinishHydration(() => setIsAuthHydrated(true));
+    if (useAuthStore.persist.hasHydrated()) setIsAuthHydrated(true);
+    return () => unsub();
+  }, []);
 
-    if (isLoggedIn && accessToken) {
-      refreshUser()
-        .then(() => {
-          router.replace('/(tabs)/home');
-        })
-        .catch((error: any) => {
-          const isNetworkError = !error?.response;
-          const isAuthError =
-            error?.response?.status === 401 ||
-            error?.response?.data?.code === 'T002' ||
-            error?.response?.data?.code === 'G003';
-
-          if (isNetworkError) {
-            // 네트워크 문제 → 토큰은 유효할 수 있으니 그냥 홈으로
-            router.replace('/(tabs)/home');
-          } else if (isAuthError) {
-            // 토큰 만료 → 로그아웃 후 온보딩으로
-            useAuthStore.getState().logout();
-            router.replace('/');
-          } else {
-            // 그 외 에러 → 그냥 홈으로
-            router.replace('/(tabs)/home');
-          }
-        });
-    }
-  }, [isHydrated]);
-
-  // 테마가 바뀔 때마다 NativeWind에 값을 밀어 넣기
   useEffect(() => {
     if (!isHydrated) return;
     setColorScheme(theme);
   }, [theme, setColorScheme, isHydrated]);
 
-  // 폰트 + hydration 둘 다 완료되면 스플래시 숨기기
   useEffect(() => {
     if ((fontsLoaded || fontError) && isHydrated) {
       SplashScreen.hideAsync();
@@ -119,20 +119,24 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={{ flex: 1 }} className={`theme-${accent}`}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="auth/signup" />
-          <Stack.Screen name="chat/keyboard-chat" />
-          <Stack.Screen name="chat/voice-chat" />
-          <Stack.Screen name="diary-screen/chat-history" />
-          <Stack.Screen name="diary-screen/editor" />
-          <Stack.Screen name="diary-screen/viewer" />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      </View>
+      {/* ✨ KeyboardProvider는 바깥, View는 안쪽으로 분리 */}
+      <KeyboardProvider>
+        <View style={{ flex: 1 }} className={`theme-${accent}`}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="auth/signup" />
+            <Stack.Screen name="chat/keyboard-chat" />
+            <Stack.Screen name="chat/voice-chat" />
+            <Stack.Screen name="diary-screen/chat-history" />
+            <Stack.Screen name="diary-screen/editor" />
+            <Stack.Screen name="diary-screen/viewer" />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+          <NavigationInitializer />
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </View>
+      </KeyboardProvider>
     </ThemeProvider>
   );
 }

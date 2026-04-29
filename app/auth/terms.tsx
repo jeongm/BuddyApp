@@ -12,7 +12,13 @@ const scale = (size: number) => Math.round((width / 430) * size);
 
 export default function TermsScreen() {
     const router = useRouter();
-    const { mode } = useLocalSearchParams();
+    const { mode, accessToken, refreshToken, member } = useLocalSearchParams<{
+        mode?: string;
+        accessToken?: string;
+        refreshToken?: string;
+        member?: string;
+    }>();
+
     const { setColorScheme } = useNativeWindColorScheme();
     const insets = useSafeAreaInsets();
 
@@ -40,7 +46,12 @@ export default function TermsScreen() {
         if (mode === 'social') {
             router.replace({
                 pathname: '/auth/onboarding',
-                params: { marketingAgreed: marketingAgreed ? 'true' : 'false' }
+                params: {
+                    marketingAgreed: marketingAgreed ? 'true' : 'false',
+                    accessToken,
+                    refreshToken,
+                    member,
+                }
             });
         } else {
             router.push({

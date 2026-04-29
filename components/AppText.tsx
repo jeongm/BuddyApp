@@ -18,6 +18,32 @@ export function AppText(props: TextProps) {
     const flatStyle = StyleSheet.flatten(props.style) || {};
     const fontWeight = String(flatStyle.fontWeight || 'normal').toLowerCase();
 
+    // Tailwind fontSize 클래스 매핑
+    const TAILWIND_FONT_SIZES: Record<string, number> = {
+        'text-xs': 12,
+        'text-sm': 14,
+        'text-base': 16,
+        'text-lg': 18,
+        'text-xl': 20,
+        'text-2xl': 24,
+        'text-3xl': 30,
+        'text-4xl': 36,
+        'text-5xl': 48,
+    };
+
+    const className = props.className as string || '';
+    const tailwindFontSize = Object.entries(TAILWIND_FONT_SIZES).find(([key]) =>
+        className.includes(key)
+    )?.[1];
+
+    const inlineSize = flatStyle.fontSize as number | undefined;
+    const resolvedFontSize = inlineSize || tailwindFontSize || 14;
+
+    // style에 직접 fontSize 넣은 경우엔 이미 scale() 처리됐다고 보고 currentScale 적용 안 함
+    const finalFontSize = inlineSize
+        ? resolvedFontSize  // style로 직접 넣은 건 그대로
+        : resolvedFontSize * currentScale;  // tailwind 클래스만 fontSizeScale 적용
+
     // ✨ 2. 굵기에 맞춰서 진짜 폰트 파일 이름으로 싹 바꿔치기!
     if (baseFont === 'Pretendard-Regular' || baseFont === 'System') {
         if (fontWeight === 'bold' || fontWeight === '700') baseFont = 'Pretendard-Bold';
@@ -31,7 +57,7 @@ export function AppText(props: TextProps) {
     // ✨ 3. [안드로이드 절대 방어막] 지우는 게 아니라 '무조건 normal'로 강제 덮어쓰기!
     const androidSafeStyle: any = {};
     if (baseFont !== 'System' && Platform.OS === 'android') {
-        androidSafeStyle.fontWeight = 'normal'; // 안드로이드야 제발 굵기 건드리지 마!!
+        androidSafeStyle.fontWeight = 'normal';
         androidSafeStyle.fontStyle = 'normal';
     }
 
@@ -41,7 +67,8 @@ export function AppText(props: TextProps) {
         androidSafeStyle,   // 안드로이드일 경우 fontWeight: normal로 강제 제압!
         {
             fontFamily: baseFont === 'System' ? undefined : baseFont,
-            fontSize: ((flatStyle.fontSize as number) || 14) * currentScale,
+            // ✅ inline fontSize가 있으면 props.style의 값을 존중, 없으면 scale 적용
+            ...(inlineSize ? {} : { fontSize: finalFontSize }),
         },
     ];
 

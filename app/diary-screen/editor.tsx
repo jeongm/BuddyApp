@@ -1,11 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Image } from "expo-image";
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Dimensions, KeyboardAvoidingView, Modal, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import {
+    Alert,
+    Dimensions,
+    Modal,
+    Platform,
+    TextInput,
+    TouchableOpacity,
+    View
+} from "react-native";
+// ✨ react-native-keyboard-controller에서 import
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { diaryApi } from "../../api/diaryApi";
@@ -25,6 +36,7 @@ const popupShadow = Platform.select({
 
 export default function DiaryEditorScreen() {
     const router = useRouter();
+
     const { setSessionId } = useChatStore();
     const { fontFamily } = useSettingStore();
     const customFontFamily = fontFamily === 'System' ? undefined : fontFamily;
@@ -32,12 +44,14 @@ export default function DiaryEditorScreen() {
     const { accent } = useThemeStore();
     const accentHex = ACCENT_HEX_COLORS[accent];
 
-    const params = useLocalSearchParams<{ mode: string, date?: string, diaryId?: string, sessionId?: string, origin?: string }>();
+    const params = useLocalSearchParams<{
+        mode: string, date?: string, diaryId?: string,
+        sessionId?: string, origin?: string
+    }>();
 
     const mode = params.mode as "create" | "edit";
     const diaryId = params.diaryId ? Number(params.diaryId) : undefined;
-    const parsedsessionId = params.sessionId;
-    const sessionId = parsedsessionId ? Number(parsedsessionId) : undefined;
+    const sessionId = params.sessionId ? Number(params.sessionId) : undefined;
     const origin = params.origin;
 
     const [targetDate, setTargetDate] = useState(params.date || format(new Date(), 'yyyy-MM-dd'));
@@ -45,15 +59,21 @@ export default function DiaryEditorScreen() {
     const [content, setContent] = useState("");
     const [tags, setTags] = useState<string[]>([]);
     const [inputTag, setInputTag] = useState("");
-
     const [images, setImages] = useState<string[]>([]);
     const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-
-    // ✨ 1. [NEW] 이미지 삭제 여부를 기억하는 상태 추가!
     const [isImageDeleted, setIsImageDeleted] = useState(false);
-
     const [isAiLoading, setIsAiLoading] = useState(origin === 'chat');
     const [isSaving, setIsSaving] = useState(false);
+    const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+
+    const parsedTargetDate = new Date(targetDate + 'T00:00:00');
+
+    const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+        if (Platform.OS === 'android') setIsDatePickerVisible(false);
+        if (event.type === 'set' && selected) {
+            setTargetDate(format(selected, 'yyyy-MM-dd'));
+        }
+    };
 
     useEffect(() => {
         if (mode === "edit" && diaryId) {
@@ -75,7 +95,7 @@ export default function DiaryEditorScreen() {
                 setContent(d.content);
                 if (d.tags) setTags(d.tags.map((t: any) => (typeof t === "string" ? t : t.name)));
             }
-        } catch (error) {
+        } catch {
             Alert.alert("알림", "AI 초안을 불러오지 못했습니다.");
         } finally {
             setIsAiLoading(false);
@@ -96,7 +116,7 @@ export default function DiaryEditorScreen() {
                 }
                 if (d.diaryDate) setTargetDate(d.diaryDate);
             }
-        } catch (error) {
+        } catch {
             Alert.alert("알림", "일기를 불러오지 못했습니다.");
             router.back();
         }
@@ -118,35 +138,22 @@ export default function DiaryEditorScreen() {
         if (!result.canceled) {
             setSelectedImageUri(result.assets[0].uri);
             setImages([result.assets[0].uri]);
-            // ✨ 2. [UPDATE] 새 이미지를 골랐으니 삭제 상태는 다시 false로 롤백!
             setIsImageDeleted(false);
         }
-    };
-
-    const handleClosePress = () => {
-        router.back();
     };
 
     const handleSave = async () => {
         if (isSaving || isAiLoading) return;
         if (!title.trim() || !content.trim()) return Alert.alert("알림", "제목과 내용을 입력해주세요.");
-
         setIsSaving(true);
-
         try {
             const formData = new FormData();
-
-            // ✨ 3. [UPDATE] 백엔드 명세서에 맞춰서 deleteImage 플래그 추가!
-            const jsonPayload = JSON.stringify({
-                title,
-                content,
-                tags,
+            formData.append("request", JSON.stringify({
+                title, content, tags,
                 diaryDate: targetDate,
-                sessionId: sessionId,
+                sessionId,
                 deleteImage: isImageDeleted
-            });
-            formData.append("request", jsonPayload);
-
+            }));
             if (selectedImageUri) {
                 const filename = selectedImageUri.split('/').pop() || 'photo.jpg';
                 const match = /\.(\w+)$/.exec(filename);
@@ -156,55 +163,138 @@ export default function DiaryEditorScreen() {
                     if (ext === 'png') imageType = 'image/png';
                     else if (ext === 'gif') imageType = 'image/gif';
                 }
-                formData.append("image", {
-                    uri: selectedImageUri,
-                    name: filename,
-                    type: imageType
-                } as any);
+                formData.append("image", { uri: selectedImageUri, name: filename, type: imageType } as any);
             }
-
             if (mode === "edit" && diaryId) {
                 await diaryApi.updateDiary(diaryId, formData);
             } else {
                 await diaryApi.createDiary(formData);
                 if (sessionId) setSessionId(0);
             }
-
             router.replace(origin === 'diary' ? '/(tabs)/diary' : '/(tabs)/calendar');
-
         } catch (error: any) {
-            console.error("🚨 저장 중 에러(message):", error?.message);
-            console.error("🚨 저장 중 에러(response):", error?.response?.data || error?.response);
+            console.error("🚨 저장 에러:", error?.message, error?.response?.data);
             Alert.alert("오류", "저장 중 오류가 발생했습니다. 다시 시도해 주세요.");
         } finally {
             setIsSaving(false);
         }
     };
 
-    const formattedDate = format(new Date(targetDate), "yyyy년 M월 d일 EEEE", { locale: ko });
+    const formattedDate = format(parsedTargetDate, "yyyy년 M월 d일 EEEE", { locale: ko });
+    const isDisabled = isSaving || isAiLoading;
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top', 'bottom']}>
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-                <View className="flex-row items-center justify-between bg-white/90 dark:bg-slate-950/90 backdrop-blur-md z-20 border-b border-slate-100 dark:border-slate-800/60" style={{ paddingHorizontal: scale(16), paddingVertical: scale(6) }}>
-                    <TouchableOpacity onPress={handleClosePress} style={{ padding: scale(6) }} disabled={isSaving || isAiLoading}>
+            <View className="flex-1">
+                {/* 헤더 */}
+                <View
+                    className="flex-row items-center justify-between bg-white/90 dark:bg-slate-950/90 backdrop-blur-md z-20 border-b border-slate-100 dark:border-slate-800/60"
+                    style={{ paddingHorizontal: scale(16), paddingVertical: scale(6) }}
+                >
+                    <TouchableOpacity onPress={() => router.back()} style={{ padding: scale(6) }} disabled={isDisabled}>
                         <Ionicons name="close" size={scale(28)} color="#64748B" />
                     </TouchableOpacity>
-
-                    <TouchableOpacity onPress={handleSave} disabled={isSaving || isAiLoading} className={`${isSaving || isAiLoading ? 'bg-slate-100 dark:bg-slate-800' : 'bg-primary-500'} rounded-full shadow-sm`} style={{ paddingVertical: scale(8), paddingHorizontal: scale(16) }}>
-                        <RNText className={`font-black tracking-wide ${isSaving || isAiLoading ? 'text-slate-400' : 'text-white'}`} style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <TouchableOpacity
+                        onPress={handleSave}
+                        disabled={isDisabled}
+                        className={`${isDisabled ? 'bg-slate-100 dark:bg-slate-800' : 'bg-primary-500'} rounded-full shadow-sm`}
+                        style={{ paddingVertical: scale(10), paddingHorizontal: scale(18) }}
+                    >
+                        <Text
+                            className={`font-black tracking-wide ${isDisabled ? 'text-slate-400' : 'text-white'}`}
+                            style={{ fontSize: scale(15), fontFamily: customFontFamily }}
+                            allowFontScaling={false}
+                        >
                             {isSaving ? "저장 중" : "완료"}
-                        </RNText>
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: scale(140), paddingTop: scale(32) }} showsVerticalScrollIndicator={false}>
+                {/*
+                  ✨ react-native-keyboard-controller의 KeyboardAwareScrollView
+                  - bottomOffset: 키보드와 커서 사이 여백 (커서가 키보드 바로 위 몇 px 위에 올지)
+                  - 커서 위치를 네이티브 레벨에서 추적해서 줄바꿈마다 정확하게 스크롤됨
+                  - iOS/Android 동일하게 동작
+                */}
+                <KeyboardAwareScrollView
+                    className="flex-1"
+                    contentContainerStyle={{ paddingBottom: scale(120), paddingTop: scale(32) }}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
+                    bottomOffset={scale(24)}
+                >
                     <View className="items-center" style={{ paddingHorizontal: scale(28), marginBottom: scale(40) }}>
-                        <Text className="font-extrabold text-primary-500 uppercase tracking-widest" style={{ marginBottom: scale(16), fontSize: scale(13) }} allowFontScaling={false}>
-                            {formattedDate}
-                        </Text>
+                        {/* 날짜 */}
+                        <TouchableOpacity
+                            onPress={() => !isDisabled && setIsDatePickerVisible(true)}
+                            activeOpacity={0.7}
+                            disabled={isDisabled}
+                            className="flex-row items-center"
+                            style={{ marginBottom: scale(16), gap: scale(6) }}
+                        >
+                            <Text
+                                className="font-extrabold text-primary-500 uppercase tracking-widest"
+                                style={{ fontSize: scale(13) }}
+                                allowFontScaling={false}
+                            >
+                                {formattedDate}
+                            </Text>
+                            <Ionicons name="pencil" size={scale(12)} color="#6366F1" style={{ opacity: 0.7 }} />
+                        </TouchableOpacity>
+
+                        {/* 날짜 피커 */}
+                        {isDatePickerVisible && (
+                            Platform.OS === 'ios' ? (
+                                <Modal transparent animationType="fade" visible={isDatePickerVisible}>
+                                    <TouchableOpacity
+                                        style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'center', alignItems: 'center' }}
+                                        activeOpacity={1}
+                                        onPress={() => setIsDatePickerVisible(false)}
+                                    >
+                                        <View
+                                            className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
+                                            style={[{ borderRadius: scale(28), width: width * 0.9, alignItems: 'center' }, popupShadow]}
+                                            onStartShouldSetResponder={() => true}
+                                        >
+                                            <View style={{ width: '100%', overflow: 'hidden', borderRadius: scale(28) }}>
+                                                <DateTimePicker
+                                                    value={parsedTargetDate}
+                                                    mode="date"
+                                                    display="inline"
+                                                    onChange={handleDateChange}
+                                                    maximumDate={new Date()}
+                                                    locale="ko-KR"
+                                                    accentColor={accentHex}
+                                                    style={{ width: width * 0.9, alignSelf: 'center' }}
+                                                />
+                                            </View>
+                                            <TouchableOpacity
+                                                onPress={() => setIsDatePickerVisible(false)}
+                                                className="bg-primary-500 items-center justify-center rounded-2xl"
+                                                style={{ width: width * 0.9 - scale(40), marginBottom: scale(20), marginTop: scale(4), paddingVertical: scale(14) }}
+                                            >
+                                                <Text className="text-white font-black" style={{ fontSize: scale(15) }} allowFontScaling={false}>
+                                                    확인
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </TouchableOpacity>
+                                </Modal>
+                            ) : (
+                                <DateTimePicker
+                                    value={parsedTargetDate}
+                                    mode="date"
+                                    display="default"
+                                    onChange={handleDateChange}
+                                    maximumDate={new Date()}
+                                />
+                            )
+                        )}
+
+                        {/* 제목 */}
                         <TextInput
                             placeholder="제목을 입력하세요"
                             placeholderTextColor="#CBD5E1"
@@ -215,9 +305,15 @@ export default function DiaryEditorScreen() {
                             multiline
                             allowFontScaling={false}
                         />
+
+                        {/* 태그 */}
                         <View className="flex-row flex-wrap justify-center items-center" style={{ gap: scale(8), marginTop: scale(16) }}>
                             {tags.map((tag) => (
-                                <TouchableOpacity key={tag} onPress={() => removeTag(tag)} activeOpacity={0.6} className="bg-primary-50 dark:bg-primary-900/40 rounded-md border border-primary-100/50 dark:border-primary-800/50 flex-row items-center" style={{ paddingHorizontal: scale(12), paddingVertical: scale(6), gap: scale(6) }}>
+                                <TouchableOpacity
+                                    key={tag} onPress={() => removeTag(tag)} activeOpacity={0.6}
+                                    className="bg-primary-50 dark:bg-primary-900/40 rounded-md border border-primary-100/50 dark:border-primary-800/50 flex-row items-center"
+                                    style={{ paddingHorizontal: scale(12), paddingVertical: scale(6), gap: scale(6) }}
+                                >
                                     <Text className="text-primary-500 dark:text-primary-300 font-extrabold uppercase tracking-wider" style={{ fontSize: scale(11) }} allowFontScaling={false}>#{tag}</Text>
                                     <Ionicons name="close" size={scale(12)} color="#94A3B8" />
                                 </TouchableOpacity>
@@ -239,18 +335,17 @@ export default function DiaryEditorScreen() {
                         </View>
                     </View>
 
+                    {/* 이미지 */}
                     <View style={{ paddingHorizontal: scale(20), marginBottom: scale(32) }}>
                         {images.length > 0 ? (
                             <View className="relative shadow-sm">
-                                <Image source={{ uri: images[0] }} style={{ width: '100%', height: scale(280), borderRadius: scale(24), backgroundColor: '#F1F5F9' }} contentFit="cover" />
-
-                                {/* ✨ 4. [UPDATE] X 버튼 누르면 화면에서 지우고 isImageDeleted를 true로! */}
+                                <Image
+                                    source={{ uri: images[0] }}
+                                    style={{ width: '100%', height: scale(280), borderRadius: scale(24), backgroundColor: '#F1F5F9' }}
+                                    contentFit="cover"
+                                />
                                 <TouchableOpacity
-                                    onPress={() => {
-                                        setImages([]);
-                                        setSelectedImageUri(null);
-                                        setIsImageDeleted(true);
-                                    }}
+                                    onPress={() => { setImages([]); setSelectedImageUri(null); setIsImageDeleted(true); }}
                                     className="absolute bg-slate-900/60 backdrop-blur-md rounded-full items-center justify-center"
                                     style={{ top: scale(16), right: scale(16), width: scale(32), height: scale(32) }}
                                 >
@@ -258,65 +353,53 @@ export default function DiaryEditorScreen() {
                                 </TouchableOpacity>
                             </View>
                         ) : (
-                            <TouchableOpacity onPress={pickImage} activeOpacity={0.6} className="w-full border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 items-center justify-center flex-row" style={{ height: scale(96), borderRadius: scale(32), gap: scale(8) }}>
+                            <TouchableOpacity
+                                onPress={pickImage}
+                                activeOpacity={0.6}
+                                className="w-full border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 items-center justify-center flex-row"
+                                style={{ height: scale(96), borderRadius: scale(32), gap: scale(8) }}
+                            >
                                 <Ionicons name="image-outline" size={scale(24)} color="#94A3B8" />
                                 <Text className="font-bold text-slate-400 dark:text-slate-500" style={{ fontSize: scale(14) }} allowFontScaling={false}>사진 첨부하기</Text>
                             </TouchableOpacity>
                         )}
                     </View>
 
-                    <View style={{ paddingHorizontal: scale(28) }}>
-                        <TextInput
-                            placeholder="오늘의 이야기를 자유롭게 기록해보세요..."
-                            placeholderTextColor="#94A3B8"
-                            multiline
-                            textAlignVertical="top"
-                            className="w-full text-slate-700 dark:text-slate-300 font-medium"
-                            style={{ fontSize: scale(16), lineHeight: scale(28), paddingTop: scale(10), minHeight: scale(300), marginBottom: scale(40) }}
-                            value={content}
-                            onChangeText={setContent}
-                            allowFontScaling={false}
-                        />
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                    {/* 본문 */}
+                    <TextInput
+                        placeholder="오늘의 이야기를 자유롭게 기록해보세요..."
+                        placeholderTextColor="#94A3B8"
+                        multiline
+                        textAlignVertical="top"
+                        className="w-full text-slate-700 dark:text-slate-300 font-medium"
+                        style={{
+                            fontSize: scale(16),
+                            lineHeight: scale(28),
+                            paddingTop: scale(10),
+                            paddingHorizontal: scale(28),
+                            paddingBottom: scale(40),
+                            // ✨ minHeight 없음 — 자연스러운 높이 확장
+                        }}
+                        value={content}
+                        onChangeText={setContent}
+                        allowFontScaling={false}
+                    />
+                </KeyboardAwareScrollView>
+            </View>
 
-            <Modal
-                visible={isAiLoading || isSaving}
-                transparent={true}
-                animationType="fade"
-            >
+            {/* AI 로딩 / 저장 모달 */}
+            <Modal visible={isAiLoading || isSaving} transparent animationType="fade">
                 <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center' }}>
                     <View
                         className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
-                        style={[
-                            {
-                                width: width * 0.8,
-                                paddingVertical: scale(40),
-                                borderRadius: scale(32),
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            },
-                            popupShadow
-                        ]}
+                        style={[{ width: width * 0.8, paddingVertical: scale(40), borderRadius: scale(32), alignItems: 'center', justifyContent: 'center' }, popupShadow]}
                     >
-                        <View
-                            style={{
-                                width: scale(76),
-                                height: scale(76),
-                                borderRadius: scale(38),
-                                backgroundColor: `${accentHex}1A`,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: scale(24),
-                            }}
-                        >
+                        <View style={{ width: scale(76), height: scale(76), borderRadius: scale(38), backgroundColor: `${accentHex}1A`, alignItems: 'center', justifyContent: 'center', marginBottom: scale(24) }}>
                             <TypingIndicator color={accentHex} dotSize={scale(10)} />
                         </View>
-
-                        <RNText className="text-slate-900 dark:text-white font-black text-center mb-3" style={{ fontSize: scale(20), fontFamily: customFontFamily }} allowFontScaling={false}>
+                        <Text className="text-slate-900 dark:text-white font-black text-center mb-3" style={{ fontSize: scale(20), fontFamily: customFontFamily }} allowFontScaling={false}>
                             {isAiLoading ? "일기를 정리하고 있어요 ✨" : "추억을 저장하고 있어요 ☁️"}
-                        </RNText>
+                        </Text>
                         <Text className="text-slate-500 dark:text-slate-400 font-medium text-center leading-6" style={{ fontSize: scale(14) }} allowFontScaling={false}>
                             {isAiLoading
                                 ? "버디가 방금 나눈 대화를 바탕으로\n멋진 일기를 쓰고 있습니다."

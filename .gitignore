@@ -34,8 +34,9 @@ yarn-error.*
 .env*.local
 
 # sensitive config files
-GoogleService-Info.plist
-google-services.json
+# GoogleService-Info.plist
+# google-services.json
+
 firebase-buddyapp-account.json
 
 # typescript

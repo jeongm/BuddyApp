@@ -45,8 +45,14 @@ export default function OnboardingScreen() {
     const insets = useSafeAreaInsets();
     const { user, setUser, setTokens } = useAuthStore();
 
-    const params = useLocalSearchParams();
+    const params = useLocalSearchParams<{
+        marketingAgreed?: string;
+        accessToken?: string;
+        refreshToken?: string;
+        member?: string;
+    }>();
     const marketingAgreed = params.marketingAgreed === 'true';
+    const isSocialSignup = !!params.accessToken;
 
     const [step, setStep] = useState(1);
     const [userNickname, setUserNickname] = useState("");
@@ -78,8 +84,11 @@ export default function OnboardingScreen() {
                         text: "확인",
                         style: "destructive",
                         onPress: () => {
-                            setTokens(null as any, null as any);
-                            setUser(null as any);
+                            // ✅ 소셜 가입이면 토큰이 store에 없으니 초기화 불필요
+                            if (!isSocialSignup) {
+                                setTokens(null as any, null as any);
+                                setUser(null as any);
+                            }
                             router.replace('/');
                         }
                     }
@@ -94,6 +103,13 @@ export default function OnboardingScreen() {
         if (!characterNickname.trim()) return Alert.alert("알림", "캐릭터 이름을 지어주세요!");
         setIsSubmitting(true);
         try {
+            // ✅ 소셜 가입이면 여기서 토큰 저장 (API 호출 전에 필요)
+            if (isSocialSignup && params.accessToken && params.refreshToken) {
+                setTokens(params.accessToken, params.refreshToken);
+                const parsedMember = params.member ? JSON.parse(params.member) : null;
+                if (parsedMember) setUser(parsedMember);
+            }
+
             if (IS_TEST_MODE) {
                 await new Promise(r => setTimeout(r, 1000));
                 if (user) setUser({ ...user, nickname: userNickname, characterId: CHARACTERS[characterIndex].seq, characterNickname });
@@ -116,8 +132,12 @@ export default function OnboardingScreen() {
             router.replace({ pathname: "/(tabs)/home", params: { isNewUser: 'true' } });
 
         } catch (error: any) {
+            // ✅ 실패 시 토큰 롤백
+            if (isSocialSignup) {
+                setTokens(null as any, null as any);
+                setUser(null as any);
+            }
             console.error("🚨 온보딩 에러:", error?.message);
-            console.error("🚨 온보딩 응답:", error?.response?.data);
             Alert.alert("오류", "설정 저장 중 문제가 발생했습니다. 다시 시도해주세요.");
         } finally {
             setIsSubmitting(false);

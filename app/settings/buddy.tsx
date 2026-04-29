@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router"; // ✨ useFocusEffect 추가
 import React, { useCallback, useEffect, useState } from "react"; // ✨ useCallback 추가
-import { ActivityIndicator, Alert, Dimensions, Platform, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { memberApi } from "../../api/memberApi";
@@ -85,9 +85,9 @@ export default function BuddySettingsScreen() {
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
                 <View className="absolute left-0 right-0 h-full items-center justify-center pointer-events-none" style={{ zIndex: -1 }}>
-                    <RNText className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <Text className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
                         버디 설정
-                    </RNText>
+                    </Text>
                 </View>
                 <View style={{ width: scale(44) }} />
             </View>
@@ -145,7 +145,7 @@ export default function BuddySettingsScreen() {
                         </View>
                     ) : (
                         < TouchableOpacity onPress={handleSaveCharacter} disabled={isSavingChar} className={`w-full rounded-[20px] items-center justify-center ${isSavingChar ? 'bg-slate-300 dark:bg-slate-700' : 'bg-primary-500'} active:opacity-80`} style={[{ paddingVertical: scale(16) }, safeShadow]}>
-                            {isSavingChar ? <ActivityIndicator size="small" color="#FFFFFF" /> : <RNText className="font-extrabold tracking-wide text-white" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>이 버디로 변경하기</RNText>}
+                            {isSavingChar ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text className="font-extrabold tracking-wide text-white" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>이 버디로 변경하기</Text>}
                         </TouchableOpacity>
                     )}
                 </View>

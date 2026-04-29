@@ -5,11 +5,11 @@ import { ko } from "date-fns/locale";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, RefreshControl, Text as RNText, ScrollView, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Dimensions, FlatList, RefreshControl, ScrollView, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { diaryApi } from "../../api/diaryApi";
-import { AppText as Text } from '../../components/AppText';
+import { AppText, AppText as Text } from '../../components/AppText';
 import { useAuthStore } from "../../store/useAuthStore";
 import { useSettingStore } from "../../store/useSettingStore";
 import { ACCENT_HEX_COLORS, useThemeStore } from "../../store/useThemeStore";
@@ -211,9 +211,13 @@ export default function DiaryFeedScreen() {
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
             {/* 헤더 */}
             <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-20">
-                <RNText className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>
+                <AppText
+                    className="font-extrabold text-slate-900 dark:text-white tracking-tight"
+                    style={{ fontSize: 26, lineHeight: 36, fontFamily: customFontFamily }}
+                    allowFontScaling={false}
+                >
                     Story
-                </RNText>
+                </AppText>
             </View>
 
             {/* 검색 + 토글 */}

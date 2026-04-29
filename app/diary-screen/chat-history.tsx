@@ -5,7 +5,7 @@ import { ko } from "date-fns/locale";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Dimensions, Platform, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { chatApi } from "../../api/chatApi";
@@ -85,9 +85,9 @@ export default function ChatHistoryScreen() {
                 </TouchableOpacity>
 
                 <View className="absolute inset-0 items-center justify-center pointer-events-none">
-                    <RNText className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
                         버디와 나눈 이야기
-                    </RNText>
+                    </Text>
                 </View>
 
                 <View style={{ width: scale(40) }} />

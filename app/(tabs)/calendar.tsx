@@ -3,11 +3,11 @@ import { addDays, addMonths, endOfMonth, endOfWeek, format, getMonth, getYear, i
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, Text as RNText, RefreshControl, ScrollView, TouchableOpacity, View, useColorScheme } from "react-native";
+import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, TouchableOpacity, View, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { diaryApi, type DailyDiaryCount } from "../../api/diaryApi";
-import { AppText as Text } from '../../components/AppText';
+import { AppText, AppText as Text } from '../../components/AppText';
 import { useSettingStore } from "../../store/useSettingStore";
 import { ACCENT_HEX_COLORS, useThemeStore } from "../../store/useThemeStore";
 import type { DiarySummary } from "../../types/diary";
@@ -124,9 +124,9 @@ export default function CalendarScreen() {
         return (
             <View className="flex-row border-b border-slate-100 dark:border-slate-800/60" style={{ paddingBottom: scale(12), marginBottom: scale(8) }}>
                 {days.map((d, i) => (
-                    <RNText key={i} className={`flex-1 text-center font-extrabold tracking-widest uppercase ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400 dark:text-slate-500"}`} style={{ fontSize: scale(11), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <AppText key={i} className={`flex-1 text-center font-extrabold tracking-widest uppercase ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400 dark:text-slate-500"}`} style={{ fontSize: scale(11), fontFamily: customFontFamily }} allowFontScaling={false}>
                         {d}
-                    </RNText>
+                    </AppText>
                 ))}
             </View>
         );
@@ -143,12 +143,12 @@ export default function CalendarScreen() {
                 const formattedDate = format(day, "d");
                 const dateKey = format(day, "yyyy-MM-dd");
                 const cloneDay = day;
-                
+
                 const isSelected = isSameDay(day, selectedDate);
                 const isNotCurrentMonth = !isSameMonth(day, monthStart);
                 const isToday = isSameDay(day, new Date());
                 const count = monthlyCounts[dateKey] || 0;
-                
+
                 // 일기 개수에 따른 점 색상 (은은한 조연 컬러로 단계별 지정)
                 let dotColorClass = "";
                 if (!isNotCurrentMonth && count > 0) {
@@ -168,9 +168,9 @@ export default function CalendarScreen() {
                     >
                         {/* ✨ 선택된 날짜 배경을 primary-500으로 변경! */}
                         <View className={`items-center justify-center rounded-full transition-colors duration-200 ${isSelected ? "bg-primary-500" : (isToday ? "bg-slate-100 dark:bg-slate-800" : "bg-transparent")}`} style={{ width: scale(32), height: scale(32) }}>
-                            <RNText className={`font-bold ${isNotCurrentMonth ? "text-slate-300 dark:text-slate-600" : isSelected ? "text-white font-extrabold" : isToday ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"}`} style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
+                            <AppText className={`font-bold ${isNotCurrentMonth ? "text-slate-300 dark:text-slate-600" : isSelected ? "text-white font-extrabold" : isToday ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"}`} style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
                                 {formattedDate}
-                            </RNText>
+                            </AppText>
                         </View>
                         <View className="justify-center" style={{ height: scale(8), marginTop: scale(2) }}>
                             {dotColorClass ? <View className={`rounded-full ${dotColorClass}`} style={{ width: scale(4), height: scale(4) }} /> : null}
@@ -188,13 +188,19 @@ export default function CalendarScreen() {
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-950 relative" edges={['top']}>
             <View className="px-6 py-4 pb-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl z-10 border-b border-slate-100 dark:border-slate-800/60">
-                <RNText className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>Calendar</RNText>
+                <AppText
+                    className="font-extrabold text-slate-900 dark:text-white tracking-tight"
+                    style={{ fontSize: 26, lineHeight: 36, fontFamily: customFontFamily }}
+                    allowFontScaling={false}
+                >
+                    Calendar
+                </AppText>
             </View>
-            
+
             <View className="border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-950 z-10" style={{ paddingHorizontal: scale(4), paddingTop: scale(24), paddingBottom: scale(8) }}>
                 <View className="flex-row items-center justify-between" style={{ marginBottom: scale(24), paddingHorizontal: scale(4) }}>
                     <TouchableOpacity onPress={handlePrevMonth} className="items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800" style={{ width: scale(40), height: scale(40) }}><Ionicons name="chevron-back" size={scale(20)} color="#64748b" /></TouchableOpacity>
-                    <RNText className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(20), fontFamily: customFontFamily }} allowFontScaling={false}>{format(currentMonth, "yyyy년 M월")}</RNText>
+                    <AppText className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(20), fontFamily: customFontFamily }} allowFontScaling={false}>{format(currentMonth, "yyyy년 M월")}</AppText>
                     <TouchableOpacity onPress={handleNextMonth} className="items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800" style={{ width: scale(40), height: scale(40) }}><Ionicons name="chevron-forward" size={scale(20)} color="#64748b" /></TouchableOpacity>
                 </View>
                 {renderDays()}
@@ -203,10 +209,10 @@ export default function CalendarScreen() {
 
             <View className="flex-1 bg-white dark:bg-slate-950">
                 <View className="flex-row items-center justify-between" style={{ paddingHorizontal: scale(24), paddingVertical: scale(20) }}>
-                    <RNText className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <AppText className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
                         {format(selectedDate, "M월 d일")}
-                        <RNText className="font-medium text-slate-400 dark:text-slate-500" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>  ·  {loading ? "..." : dailyDiaries.length}개의 기록</RNText>
-                    </RNText>
+                        <AppText className="font-medium text-slate-400 dark:text-slate-500" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>  ·  {loading ? "..." : dailyDiaries.length}개의 기록</AppText>
+                    </AppText>
                 </View>
 
                 {loading && !refreshing ? (
@@ -225,13 +231,13 @@ export default function CalendarScreen() {
                             const d = diary as any;
                             const hasImage = !!d.imageUrl || (d.images && d.images.length > 0);
                             const previewUrl = d.imageUrl || (d.images?.[0]?.url || d.images?.[0]);
-                            
+
                             return (
                                 <TouchableOpacity key={diary.diaryId} onPress={() => router.push({ pathname: '/diary-screen/viewer', params: { id: diary.diaryId } })} activeOpacity={0.6} className="border-b border-slate-100 dark:border-slate-800/60 flex-row" style={{ paddingHorizontal: scale(24), paddingVertical: scale(14), gap: scale(16) }}>
                                     <View className="flex-1 justify-center" style={{ gap: scale(6) }}>
                                         <Text className="font-extrabold text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(16) }} allowFontScaling={false} numberOfLines={1}>{diary.title || "제목 없음"}</Text>
                                         <Text className="text-slate-500 dark:text-slate-400" style={{ fontSize: scale(14), lineHeight: scale(20) }} allowFontScaling={false} numberOfLines={2}>{diary.summary || d.content}</Text>
-                                        
+
                                         {diary.tags && diary.tags.length > 0 && (
                                             <View className="flex-row flex-wrap" style={{ gap: scale(6), marginTop: scale(4) }}>
                                                 {diary.tags.map((tag: any, idx) => (

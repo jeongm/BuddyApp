@@ -51,18 +51,17 @@ export const useAuthStore = create<AuthState>()(
       // ✨ [구현 완료] 서버에 '나'의 최신 정보를 물어보고 업데이트함
       refreshUser: async () => {
         try {
-          // memberApi의 getMe() 호출
           const response = await memberApi.getMe();
-
-          // memberApi 결과를 보면 AuthResponse<Member> 형태이므로 .result를 가져옵니다.
           if (response.result) {
             set({ user: response.result });
             console.log("🔄 기기 데이터 동기화 완료:", response.result.characterNickname);
           }
         } catch (error) {
-          console.error("❌ 동기화 실패 (로그인 만료일 수도 있음):", error);
+          console.error("❌ 동기화 실패:", error);
+          throw error; // ✅ 이 한 줄이 핵심! 에러를 호출한 곳으로 전달
         }
       },
+
 
       setTokens: (access, refresh) => {
         set({ accessToken: access, refreshToken: refresh, isLoggedIn: true });

@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 // ✨ 1. Keyboard 모듈 추가!
-import { Alert, Dimensions, Keyboard, KeyboardAvoidingView, Modal, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 // ✨ 2. useSafeAreaInsets 추가!
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatApi } from "../../api/chatApi";
@@ -222,13 +222,13 @@ export default function KeyboardChatScreen() {
                     </TouchableOpacity>
 
                     <View className="absolute left-0 right-0 h-full items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
-                        <RNText
+                        <Text
                             className="font-black text-slate-900 dark:text-white tracking-tight"
                             style={{ fontSize: scale(18), fontFamily: customFontFamily }}
                             allowFontScaling={false}
                         >
                             {myBuddyName}
-                        </RNText>
+                        </Text>
                     </View>
 
                     <TouchableOpacity
@@ -239,16 +239,18 @@ export default function KeyboardChatScreen() {
                             ? 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700'
                             : 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 dark:border-primary-400'
                             }`}
-                        style={{ paddingHorizontal: scale(16), paddingVertical: scale(8), zIndex: 10 }}
+                        // ✨ 상하좌우 패딩을 늘려서 버튼 영역 자체를 키웠습니다 (기존 16, 8 -> 18, 10)
+                        style={{ paddingHorizontal: scale(18), paddingVertical: scale(10), zIndex: 10 }}
                     >
-                        <RNText
+                        <Text
                             className={`font-black tracking-tight ${messages.length < 4 ? 'text-slate-400 dark:text-slate-500' : 'text-primary-600 dark:text-primary-300'
                                 }`}
-                            style={{ fontSize: scale(13), fontFamily: customFontFamily }}
+                            // ✨ 글씨 크기를 13에서 15로 키웠습니다!
+                            style={{ fontSize: scale(15), fontFamily: customFontFamily }}
                             allowFontScaling={false}
                         >
                             일기 작성
-                        </RNText>
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -295,9 +297,9 @@ export default function KeyboardChatScreen() {
                                 </View>
                             </View>
                             <View className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-[20px] rounded-tl-[4px] px-4" style={[{ paddingVertical: scale(10), paddingHorizontal: scale(16) }, safeShadow]}>
-                                <RNText className="text-slate-500 font-bold tracking-widest" style={{ fontSize: scale(14) }}>
+                                <Text className="text-slate-500 font-bold tracking-widest" style={{ fontSize: scale(14) }}>
                                     ···
-                                </RNText>
+                                </Text>
                             </View>
                         </View>
                     )}
@@ -369,9 +371,9 @@ export default function KeyboardChatScreen() {
                     <View className="bg-white dark:bg-slate-900 w-full rounded-[24px] overflow-hidden" style={[{ padding: scale(20) }, popupShadow]}>
 
                         <View className="items-center mb-5 mt-2">
-                            <RNText className="text-slate-900 dark:text-white font-black text-center mb-2" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
+                            <Text className="text-slate-900 dark:text-white font-black text-center mb-2" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
                                 대화를 멈출까요?
-                            </RNText>
+                            </Text>
                             <Text className="text-slate-500 dark:text-slate-400 font-medium text-center leading-5" style={{ fontSize: scale(13) }} allowFontScaling={false}>
                                 나중에 이어서 할 수 있지만,{"\n"}<Text className="text-rose-500 font-bold">12시간 후에는 완전히 사라져요.</Text>
                             </Text>
@@ -384,9 +386,9 @@ export default function KeyboardChatScreen() {
                                 className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-xl items-center justify-center"
                                 style={{ paddingVertical: scale(12) }}
                             >
-                                <RNText className="text-slate-600 dark:text-slate-300 font-bold" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
+                                <Text className="text-slate-600 dark:text-slate-300 font-bold" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
                                     종료하기
-                                </RNText>
+                                </Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -395,9 +397,9 @@ export default function KeyboardChatScreen() {
                                 className="flex-1 bg-primary-600 rounded-xl items-center justify-center"
                                 style={{ paddingVertical: scale(12) }}
                             >
-                                <RNText className="text-white font-bold" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
+                                <Text className="text-white font-bold" style={{ fontSize: scale(14), fontFamily: customFontFamily }} allowFontScaling={false}>
                                     유지하기
-                                </RNText>
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>

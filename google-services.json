@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "980607561323",
+    "project_id": "buddy-5229f",
+    "storage_bucket": "buddy-5229f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:980607561323:android:f2538e224f60be3fc94b2e",
+        "android_client_info": {
+          "package_name": "com.buddylabs.buddy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVlxh1838Z9WuC-pYisVJ0P-rJMLggd4o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

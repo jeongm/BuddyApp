@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, Platform, Text as RNText, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { memberApi } from "../../api/memberApi";
@@ -32,9 +32,9 @@ export default function ChangePasswordScreen() {
     const getPasswordMatchInfo = () => {
         if (!newPasswordInput || !confirmPasswordInput) return null;
         if (newPasswordInput === confirmPasswordInput) {
-            return <RNText className="text-emerald-500 font-bold ml-2 mt-2" style={{ fontSize: scale(12), fontFamily: customFontFamily }}>비밀번호가 서로 일치합니다.</RNText>;
+            return <Text className="text-emerald-500 font-bold ml-2 mt-2" style={{ fontSize: scale(12), fontFamily: customFontFamily }}>비밀번호가 서로 일치합니다.</Text>;
         }
-        return <RNText className="text-rose-500 font-bold ml-2 mt-2" style={{ fontSize: scale(12), fontFamily: customFontFamily }}>새 비밀번호가 일치하지 않습니다.</RNText>;
+        return <Text className="text-rose-500 font-bold ml-2 mt-2" style={{ fontSize: scale(12), fontFamily: customFontFamily }}>새 비밀번호가 일치하지 않습니다.</Text>;
     };
 
     const handleSavePassword = async () => {
@@ -74,9 +74,9 @@ export default function ChangePasswordScreen() {
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
                 <View className="absolute left-0 right-0 h-full items-center justify-center pointer-events-none" style={{ zIndex: -1 }}>
-                    <RNText className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <Text className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
                         새 비밀번호 설정
-                    </RNText>
+                    </Text>
                 </View>
                 <View style={{ width: scale(44) }} />
             </View>
@@ -172,9 +172,9 @@ export default function ChangePasswordScreen() {
                     {isPasswordSaving ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                        <RNText className={`font-extrabold tracking-wide ${isButtonDisabled ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`} style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
+                        <Text className={`font-extrabold tracking-wide ${isButtonDisabled ? 'text-slate-400 dark:text-slate-500' : 'text-white'}`} style={{ fontSize: scale(16), fontFamily: customFontFamily }} allowFontScaling={false}>
                             완료
-                        </RNText>
+                        </Text>
                     )}
                 </TouchableOpacity>
             </View>

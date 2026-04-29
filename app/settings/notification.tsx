@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Alert, Dimensions, Platform, Text as RNText, ScrollView, Switch, TouchableOpacity, View } from "react-native";
+import { Alert, Dimensions, Platform, ScrollView, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { notificationApi, NotificationSettings } from "../../api/notificationApi";
@@ -124,9 +124,9 @@ export default function NotificationSettingsScreen() {
                     <Ionicons name="chevron-back" size={scale(28)} color="#64748B" />
                 </TouchableOpacity>
                 <View className="absolute left-0 right-0 h-full items-center justify-center pointer-events-none" style={{ zIndex: -1 }}>
-                    <RNText className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
+                    <Text className="font-black text-slate-900 dark:text-white tracking-tight" style={{ fontSize: scale(18), fontFamily: customFontFamily }} allowFontScaling={false}>
                         알림 설정
-                    </RNText>
+                    </Text>
                 </View>
                 <View style={{ width: scale(44) }} />
             </View>

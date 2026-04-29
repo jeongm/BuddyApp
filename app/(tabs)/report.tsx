@@ -3,13 +3,13 @@ import { endOfWeek, format, startOfWeek, subDays, subWeeks } from "date-fns";
 import { Image } from "expo-image";
 import { Stack, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, Platform, RefreshControl, Text as RNText, ScrollView, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, Platform, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp, ZoomIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { diaryApi } from "../../api/diaryApi";
 import { insightApi, type WeeklyIdentity, type WeeklyTag } from "../../api/insightApi";
-import { AppText as Text } from '../../components/AppText';
+import { AppText, AppText as Text } from '../../components/AppText';
 import { useAuthStore } from "../../store/useAuthStore";
 import { useSettingStore } from "../../store/useSettingStore";
 // [추가] 테마 스토어 연동 (하드코딩 삭제!)
@@ -167,9 +167,13 @@ export default function ReportScreen() {
 
             {/* 헤더 영역 */}
             <View className="px-6 py-4 pb-2 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-xl z-20 border-b border-slate-200/60 dark:border-slate-800/60">
-                <RNText className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter" style={{ fontFamily: customFontFamily }} allowFontScaling={false}>
+                <AppText
+                    className="font-extrabold text-slate-900 dark:text-white tracking-tight"
+                    style={{ fontSize: 26, lineHeight: 36, fontFamily: customFontFamily }}
+                    allowFontScaling={false}
+                >
                     Reflection
-                </RNText>
+                </AppText>
             </View>
 
             <ScrollView
