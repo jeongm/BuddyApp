@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -476,7 +476,7 @@ export default function HomeScreen() {
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top']}>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
 
-        {/* 상단: 키보드 버튼 - 고정 높이 */}
+        {/* 상단: 키보드 버튼 - 고정 높이
         <View className="flex-row justify-end items-center px-6 w-full" style={{ height: scale(60) }}>
           <TouchableOpacity
             onPress={() => router.push('/chat/keyboard-chat')}
@@ -486,7 +486,7 @@ export default function HomeScreen() {
           >
             <MaterialIcons name="keyboard" size={scale(24)} color="#64748B" />
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* AI 텍스트 - flex-1로 남은 공간 차지하며 중앙정렬 */}
         <View className="flex-1 items-center justify-center px-6">
